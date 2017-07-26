@@ -1,0 +1,5 @@
+package compile
+
+func CompileTrigger() {
+
+}
