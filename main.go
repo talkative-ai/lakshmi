@@ -8,9 +8,13 @@ func main() {
 }
 
 func processRequest(w http.ResponseWriter, r *http.Request) {
-	go initiateCompiler()
+
+	r.ParseForm()
+	project_id := r.Form.Get("project-id")
+
+	go initiateCompiler(project_id)
 }
 
-func initiateCompiler() {
+func initiateCompiler(project_id string) {
 
 }

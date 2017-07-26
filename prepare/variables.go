@@ -1,1 +1,5 @@
 package prepare
+
+func PrepareVariables() {
+
+}
