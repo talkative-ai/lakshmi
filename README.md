@@ -1,8 +1,8 @@
 With respect to Redis, the following are samples of how the compiled data is to be stored:
 ```
-compiled:{game_id}:meta:static:[...properties]
-compiled:{game_id}:meta:static:[...dynamic]
-compiled:{game_id}:e:{entity_enum}:{entity_id}
+compiled:{pub_id}:meta:static:[...properties]
+compiled:{pub_id}:meta:static:[...dynamic]
+compiled:{pub_id}:e:{entity_enum}:{entity_id}
 ```
 
 The following are valid entities
@@ -14,14 +14,11 @@ Trigger
 ```
 
 Zones
-  compiled:{gid}:0
+  compiled:{pid}:0
   -- Dialogs --
   -- The following is a List of out-logic node IDs
-  -- Human readable version compiled:{game_id}:{Zones }:{zone_id}:entities:{Dialogs}:input
-  compiled:{gid}:e:0:{zid}:e:2:i:[...inputs_compiled]
-  -- The following contains an out-logic node structure as a string
-  -- Human readable format compiled:{game_id}:entities:{entity_enum=0}:{zone_id}:entities:{entity_enum=2}:out:{outlogic_id}
-  compiled:{gid}:e:0:{zid}:e:2:o:{outlogic_id}
+  -- Human readable version compiled:{pub_id}:{Zones}:{zone_id}:entities:{Dialogs}:input
+  compiled:{pid}:e:0:{zid}:e:2:i:[...inputs_compiled] binary_outlogic
 
 ```
 Out-logic node
