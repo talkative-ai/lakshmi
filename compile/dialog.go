@@ -16,7 +16,7 @@ func CompileDialog(id int, dialog models.AumDialog) {
 	for i, node := range dialog.Nodes {
 
 		// Bundle the AlwaysExec
-		prepare.BundleActions(i, node.LogicalSet.AlwaysExec, ch)
+		go prepare.BundleActions(i, node.LogicalSet.AlwaysExec, ch)
 
 		// Prepare to bundle Exec actions within LStatements
 		processedLBlocks[i] = models.LBlock{}
@@ -29,7 +29,7 @@ func CompileDialog(id int, dialog models.AumDialog) {
 				wg.Add(1)
 				go func(idx1, idx2 int, AndBlock models.RawLStatement) {
 					cinner := make(chan helpers.BSliceIndex)
-					prepare.BundleActions(0, AndBlock.Exec, cinner)
+					go prepare.BundleActions(0, AndBlock.Exec, cinner)
 					// Write bundled := (<-cinner).Bslice to redis
 					close(cinner)
 					redisKey := fmt.Sprintf("compiled:1:entities:1:%i:%i", 1, 1)
@@ -53,4 +53,8 @@ func CompileDialog(id int, dialog models.AumDialog) {
 	}
 
 	wg.Wait()
+
+	for _, block := range processedLBlocks {
+		helpers.CompileLogic(&block)
+	}
 }
