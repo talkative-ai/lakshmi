@@ -1,9 +1,9 @@
-package compile
+package helpers
 
 import (
 	"encoding/binary"
 
-	"github.com/artificial-universe-maker/shiva/models"
+	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
 type lStatementsIndex struct {
@@ -14,11 +14,6 @@ type lStatementsIndex struct {
 type lStatementIndex struct {
 	Stmt  models.LStatement
 	Index int
-}
-
-type bSliceIndex struct {
-	Bslice []byte
-	Index  int
 }
 
 func compileHelper(o *models.OpArray) []byte {
@@ -58,7 +53,7 @@ func compileHelper(o *models.OpArray) []byte {
 	return compiled
 }
 
-func compileStatement(stmtidx *lStatementIndex, cinner chan bSliceIndex) {
+func compileStatement(stmtidx *lStatementIndex, cinner chan BSliceIndex) {
 	bslice := []byte{}
 
 	if stmtidx.Stmt.Operators != nil {
@@ -71,19 +66,19 @@ func compileStatement(stmtidx *lStatementIndex, cinner chan bSliceIndex) {
 		binary.LittleEndian.PutUint32(b, uint32(execID))
 		bslice = append(bslice, b...)
 	}
-	bsliceidx := bSliceIndex{
+	bsliceidx := BSliceIndex{
 		Bslice: bslice,
 		Index:  stmtidx.Index,
 	}
 	cinner <- bsliceidx
 }
 
-func compileStatements(cidx *lStatementsIndex, c chan bSliceIndex) {
+func compileStatements(cidx *lStatementsIndex, c chan BSliceIndex) {
 	bslice := []byte{}
 
 	bslice = append(bslice, uint8(len(cidx.Statements)))
 
-	cinner := make(chan bSliceIndex)
+	cinner := make(chan BSliceIndex)
 	for idx, stmt := range cidx.Statements {
 		go compileStatement(&lStatementIndex{
 			Stmt:  stmt,
@@ -117,7 +112,7 @@ func compileStatements(cidx *lStatementsIndex, c chan bSliceIndex) {
 	// Compiled statements
 	finished = append(finished, bslice...)
 
-	bsliceidx := bSliceIndex{
+	bsliceidx := BSliceIndex{
 		Bslice: finished,
 		Index:  cidx.Index,
 	}
@@ -138,7 +133,7 @@ func CompileLogic(logic *models.LBlock) []byte {
 
 	compiled = append(compiled, uint8(len(*logic.Statements)))
 
-	c := make(chan bSliceIndex)
+	c := make(chan BSliceIndex)
 	for idx, conditional := range *logic.Statements {
 		go compileStatements(&lStatementsIndex{
 			Statements: conditional,

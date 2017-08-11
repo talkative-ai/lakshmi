@@ -1,11 +1,11 @@
-package compile
+package helpers
 
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/artificial-universe-maker/shiva/models"
+	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
 func TestCompileLogic(t *testing.T) {

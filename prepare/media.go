@@ -1,5 +1,5 @@
 package prepare
 
-func PrepareResources() {
+func Resources() {
 
 }
