@@ -31,6 +31,7 @@ func CompileDialog(id int, dialog models.AumDialog) {
 					cinner := make(chan helpers.BSliceIndex)
 					prepare.BundleActions(0, AndBlock.Exec, cinner)
 					// Write bundled := (<-cinner).Bslice to redis
+					close(cinner)
 					redisKey := fmt.Sprintf("compiled:1:entities:1:%i:%i", 1, 1)
 					(*processedLBlocks[i].Statements)[idx1][idx2] = models.LStatement{Operators: AndBlock.Operators, Exec: redisKey}
 					wg.Done()
@@ -38,11 +39,17 @@ func CompileDialog(id int, dialog models.AumDialog) {
 			}
 		}
 	}
+
+	chcount := 0
 	for bundled := range ch {
 		//	compiled:{pub_id}:entities:{Dialogs}:{dialog_id}:{action_set}
 		redisKey := fmt.Sprintf("compiled:1:entities:1:%i:%i", 1, 1)
 		// Write bundled to redis
 		processedLBlocks[bundled.Index].AlwaysExec = redisKey
+		chcount++
+		if chcount == len(dialog.Nodes) {
+			close(ch)
+		}
 	}
 
 	wg.Wait()
