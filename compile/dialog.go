@@ -1,7 +1,6 @@
 package compile
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/artificial-universe-maker/go-utilities/keynav"
@@ -10,10 +9,24 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
+type counter struct {
+	mu sync.Mutex
+	v  uint64
+}
+
+func (c *counter) Incr() uint64 {
+	c.mu.Lock()
+	v := c.v
+	c.v++
+	c.mu.Unlock()
+	return v
+}
+
+func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
+	var bundleCount counter
 
 	// Bundle the AlwaysExec actions
 	wg.Add(1)
@@ -21,7 +34,7 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 		defer wg.Done()
 
 		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
-		key := keynav.CompiledEntities(1, models.AEIDActionBundle, fmt.Sprintf("%v", idx))
+		key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, bundleCount.Incr())
 		redisWriter <- helpers.RedisBytes{
 			Key:   key,
 			Bytes: bslice,
@@ -52,7 +65,7 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 				defer wg.Done()
 				bslice := prepare.BundleActions(Statement.Exec)
 
-				key := keynav.CompiledEntities(1, models.AEIDActionBundle, fmt.Sprintf("%vx%vx%v", idx, idx1, idx2))
+				key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, bundleCount.Incr())
 
 				redisWriter <- helpers.RedisBytes{
 					Key:   key,
@@ -67,19 +80,52 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 	return helpers.CompileLogic(&lblock)
 }
 
-func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisBytes) {
+func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func(i int, node models.AumDialogNode) {
+	go func(node models.AumDialogNode) {
 		defer wg.Done()
-		compiledNode := compileNodeHelper(i, node, redisWriter)
-		key := keynav.CompiledEntities(1, models.AEIDDialogNode, fmt.Sprintf("%v", i))
+
+		bslice := []byte{}
+
+		// Append the number of child nodes
+		if node.ChildNodes == nil {
+			bslice = append(bslice, 0)
+		} else {
+			bslice = append(bslice, byte(len(*node.ChildNodes)))
+			for n := range *node.ChildNodes {
+				bslice = append(bslice, byte(n))
+			}
+		}
+
+		bslice = append(bslice, compileNodeHelper(pubID, node, redisWriter)...)
+		compiledKey := keynav.CompiledEntity(pubID, models.AEIDDialogNode, *node.ID)
 
 		redisWriter <- helpers.RedisBytes{
-			Key:   key,
-			Bytes: compiledNode,
+			Key:   compiledKey,
+			Bytes: bslice,
 		}
-	}(0, node)
+
+		for _, input := range node.EntryInput {
+			var key string
+			if node.ParentNodes == nil {
+				key := keynav.CompiledDialogRootWithinZone(pubID, zoneID, string(input))
+				redisWriter <- helpers.RedisBytes{
+					Key:   key,
+					Bytes: []byte(compiledKey),
+				}
+			} else {
+				for _, parent := range *node.ParentNodes {
+					key := keynav.CompiledDialogNodeWithinZone(pubID, zoneID, *parent.ID, string(input))
+					redisWriter <- helpers.RedisBytes{
+						Key:   key,
+						Bytes: []byte(compiledKey),
+					}
+				}
+			}
+		}
+
+	}(node)
 
 	if node.ChildNodes == nil {
 		wg.Wait()
@@ -90,7 +136,7 @@ func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisByte
 	for i, child := range *node.ChildNodes {
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
-			CompileDialog(node, redisWriter)
+			CompileDialog(pubID, zoneID, node, redisWriter)
 		}(child)
 	}
 	wg.Wait()
