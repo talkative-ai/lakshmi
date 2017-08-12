@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/artificial-universe-maker/go-utilities/keynav"
@@ -20,7 +21,7 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 		defer wg.Done()
 
 		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
-		key := keynav.CompiledEntities(1, models.AEIDActors)
+		key := keynav.CompiledEntities(1, models.AEIDActionBundle, fmt.Sprintf("%v", idx))
 		redisWriter <- helpers.RedisBytes{
 			Key:   key,
 			Bytes: bslice,
@@ -52,7 +53,7 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 				defer wg.Done()
 				bslice := prepare.BundleActions(AndBlock.Exec)
 
-				key := keynav.CompiledEntities(1, models.AEIDActors)
+				key := keynav.CompiledEntities(1, models.AEIDActionBundle, fmt.Sprintf("%vx%vx%v", idx, idx1, idx2))
 
 				redisWriter <- helpers.RedisBytes{
 					Key:   key,
@@ -75,7 +76,7 @@ func CompileDialog(dialog models.AumDialog, redisWriter chan helpers.RedisBytes)
 		go func(i int, node models.AumDialogNode) {
 			wg.Done()
 			compiledNode := compileNodeHelper(i, node, redisWriter)
-			key := keynav.CompiledEntities(1, models.AEIDActors)
+			key := keynav.CompiledEntities(1, models.AEIDDialogNode, fmt.Sprintf("%v", i))
 
 			redisWriter <- helpers.RedisBytes{
 				Key:   key,
