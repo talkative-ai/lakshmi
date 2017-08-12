@@ -34,24 +34,23 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 		return helpers.CompileLogic(&lblock)
 	}
 
-	// Prepare an array for processed "Or" blocks
+	// Prepare an array for blocks of processed "if/elif/else" blocks
 	stmt := make([][]models.LStatement, len(*node.LogicalSet.Statements))
 	lblock.Statements = &stmt
 
 	// Iterate through conditional statements
-	for j, OrBlock := range *node.LogicalSet.Statements {
-		// As a reminder,
-		// "And" blocks are sibling objects within an array.
-		// "Or" blocks contain sibling "And" blocks
-		// Prepare an array for processed "And" blocks within the "Or" block
-		(*lblock.Statements)[j] = make([]models.LStatement, len(OrBlock))
+	for j, Statements := range *node.LogicalSet.Statements {
 
-		// Iterate through "And" blocks
-		for k, AndBlock := range OrBlock {
+		// Prepare an array for individual processed "if/elif/else" blocks
+		(*lblock.Statements)[j] = make([]models.LStatement, len(Statements))
+
+		// Iterate through statements containing conditional logic
+		// Each "Statement" here represents an individual if/elif/else block
+		for k, Statement := range Statements {
 			wg.Add(1)
-			go func(idx1, idx2 int, AndBlock models.RawLStatement) {
+			go func(idx1, idx2 int, Statement models.RawLStatement) {
 				defer wg.Done()
-				bslice := prepare.BundleActions(AndBlock.Exec)
+				bslice := prepare.BundleActions(Statement.Exec)
 
 				key := keynav.CompiledEntities(1, models.AEIDActionBundle, fmt.Sprintf("%vx%vx%v", idx, idx1, idx2))
 
@@ -59,8 +58,8 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 					Key:   key,
 					Bytes: bslice,
 				}
-				(*lblock.Statements)[idx1][idx2] = models.LStatement{Operators: AndBlock.Operators, Exec: key}
-			}(j, k, AndBlock)
+				(*lblock.Statements)[idx1][idx2] = models.LStatement{Operators: Statement.Operators, Exec: key}
+			}(j, k, Statement)
 		}
 	}
 

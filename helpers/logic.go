@@ -16,7 +16,7 @@ type lStatementIndex struct {
 	Index int
 }
 
-func compileHelper(o *models.OpArray) []byte {
+func compileHelper(o *models.OrGroup) []byte {
 	compiled := []byte{}
 	OperatorStrIntMap := models.GenerateOperatorStrIntMap()
 

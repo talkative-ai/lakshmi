@@ -62,6 +62,8 @@ func TestCompileDialog(t *testing.T) {
 	(*block.Statements)[0][0].Exec.PlaySounds[0].Value = "This is AUM!"
 	(*block.Statements)[0][0].Exec.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
 	(*block.Statements)[0][0].Exec.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
+	(*block.Statements)[0][0].Operators = &models.OrGroup{}
+	(*block.Statements)[0][0].Operators
 
 	dialog := models.AumDialog{}
 	dialog.Nodes = make([]models.AumDialogNode, 1)
