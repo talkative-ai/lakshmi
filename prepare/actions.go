@@ -7,8 +7,8 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
-func BundleActions(id int, AAS models.AumActionSet, ch chan helpers.BSliceIndex) {
-	bundle := helpers.BSliceIndex{Index: id, Bslice: []byte{}}
+func BundleActions(AAS models.AumActionSet) []byte {
+	bundle := []byte{}
 	bslices := make([][]byte, len(AAS.PlaySounds))
 	cinner := make(chan helpers.BSliceIndex)
 	i := 0
@@ -33,7 +33,7 @@ func BundleActions(id int, AAS models.AumActionSet, ch chan helpers.BSliceIndex)
 		}
 	}
 	for _, bslice := range bslices {
-		bundle.Bslice = append(bundle.Bslice, bslice...)
+		bundle = append(bundle, bslice...)
 	}
-	ch <- bundle
+	return bundle
 }

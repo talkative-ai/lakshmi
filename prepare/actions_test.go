@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/artificial-universe-maker/lakshmi/helpers"
-
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
@@ -19,12 +17,6 @@ func TestBundleActions(t *testing.T) {
 	AAS.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
 	AAS.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
 
-	ch := make(chan helpers.BSliceIndex)
-
-	go BundleActions(0, AAS, ch)
-
-	for v := range ch {
-		fmt.Println(v)
-		close(ch)
-	}
+	b := BundleActions(AAS)
+	fmt.Println(b)
 }
