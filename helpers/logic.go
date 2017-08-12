@@ -60,8 +60,10 @@ func compileStatement(stmtidx *lStatementIndex, cinner chan BSliceIndex) {
 		bslice = append(bslice, uint8(len(*stmtidx.Stmt.Operators)))
 		bslice = append(bslice, compileHelper(stmtidx.Stmt.Operators)...)
 	}
-	// TODO This no longer is an array of ints, but now a single string
-	bslice = append(bslice, byte(len(stmtidx.Stmt.Exec)))
+
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(len(stmtidx.Stmt.Exec)))
+	bslice = append(bslice, b...)
 	bslice = append(bslice, []byte(stmtidx.Stmt.Exec)...)
 	bsliceidx := BSliceIndex{
 		Bslice: bslice,
@@ -119,9 +121,9 @@ func compileStatements(cidx *lStatementsIndex, c chan BSliceIndex) {
 func CompileLogic(logic *models.LBlock) []byte {
 	compiled := []byte{}
 
-	// TODO: This no longer uses a flag to determine if AlwaysExec exists
-	// Also, AlwaysExec is no longer an int. Now a string pointing to Redis key
-	compiled = append(compiled, byte(len(logic.AlwaysExec)))
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(len(logic.AlwaysExec)))
+	compiled = append(compiled, b...)
 	compiled = append(compiled, []byte(logic.AlwaysExec)...)
 
 	compiled = append(compiled, uint8(len(*logic.Statements)))
