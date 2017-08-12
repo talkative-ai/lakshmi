@@ -67,20 +67,28 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 	return helpers.CompileLogic(&lblock)
 }
 
-func CompileDialog(dialog models.AumDialog, redisWriter chan helpers.RedisBytes) {
+func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisBytes) {
 	wg := sync.WaitGroup{}
-	wg.Add(len(dialog.Nodes))
-	for i, node := range dialog.Nodes {
-		go func(i int, node models.AumDialogNode) {
-			wg.Done()
-			compiledNode := compileNodeHelper(i, node, redisWriter)
-			key := keynav.CompiledEntities(1, models.AEIDDialogNode, fmt.Sprintf("%v", i))
+	wg.Add(1)
+	go func(i int, node models.AumDialogNode) {
+		wg.Done()
+		compiledNode := compileNodeHelper(i, node, redisWriter)
+		key := keynav.CompiledEntities(1, models.AEIDDialogNode, fmt.Sprintf("%v", i))
 
-			redisWriter <- helpers.RedisBytes{
-				Key:   key,
-				Bytes: compiledNode,
-			}
-		}(i, node)
+		redisWriter <- helpers.RedisBytes{
+			Key:   key,
+			Bytes: compiledNode,
+		}
+	}(0, node)
+
+	if node.ChildNodes == nil {
+		wg.Wait()
+		return
+	}
+
+	wg.Add(len(*node.ChildNodes))
+	for i, child := range *node.ChildNodes {
+		CompileDialog(child, redisWriter)
 	}
 
 	wg.Wait()
