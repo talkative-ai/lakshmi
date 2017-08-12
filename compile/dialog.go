@@ -71,7 +71,7 @@ func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisByte
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func(i int, node models.AumDialogNode) {
-		wg.Done()
+		defer wg.Done()
 		compiledNode := compileNodeHelper(i, node, redisWriter)
 		key := keynav.CompiledEntities(1, models.AEIDDialogNode, fmt.Sprintf("%v", i))
 
@@ -88,8 +88,10 @@ func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisByte
 
 	wg.Add(len(*node.ChildNodes))
 	for i, child := range *node.ChildNodes {
-		CompileDialog(child, redisWriter)
+		go func(node models.AumDialogNode) {
+			defer wg.Done()
+			CompileDialog(node, redisWriter)
+		}(child)
 	}
-
 	wg.Wait()
 }
