@@ -50,11 +50,18 @@ func TestCompileDialog(t *testing.T) {
 	**/
 	block := &models.RawLBlock{}
 	block.AlwaysExec = models.AumActionSet{}
-	block.AlwaysExec.PlaySounds = make([]models.ARAPlaySound, 2)
+	block.AlwaysExec.PlaySounds = make([]models.ARAPlaySound, 1)
 	block.AlwaysExec.PlaySounds[0].SoundType = models.ARAPlaySoundTypeText
 	block.AlwaysExec.PlaySounds[0].Value = "Hello world"
-	block.AlwaysExec.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
-	block.AlwaysExec.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
+	stmt := make([][]models.RawLStatement, 1)
+	block.Statements = &stmt
+	(*block.Statements)[0] = make([]models.RawLStatement, 1)
+	(*block.Statements)[0][0].Exec = models.AumActionSet{}
+	(*block.Statements)[0][0].Exec.PlaySounds = make([]models.ARAPlaySound, 2)
+	(*block.Statements)[0][0].Exec.PlaySounds[0].SoundType = models.ARAPlaySoundTypeText
+	(*block.Statements)[0][0].Exec.PlaySounds[0].Value = "This is AUM!"
+	(*block.Statements)[0][0].Exec.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
+	(*block.Statements)[0][0].Exec.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
 
 	dialog := models.AumDialog{}
 	dialog.Nodes = make([]models.AumDialogNode, 1)
@@ -65,6 +72,7 @@ func TestCompileDialog(t *testing.T) {
 
 	CompileDialog(dialog, redisWriter)
 
+	fmt.Println(<-redisWriter)
 	fmt.Println(<-redisWriter)
 	fmt.Println(<-redisWriter)
 }

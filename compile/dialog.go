@@ -60,7 +60,6 @@ func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan help
 					Bytes: bslice,
 				}
 				(*lblock.Statements)[idx1][idx2] = models.LStatement{Operators: AndBlock.Operators, Exec: key}
-				wg.Done()
 			}(j, k, AndBlock)
 		}
 	}
