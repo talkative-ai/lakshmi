@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"encoding/binary"
 	"sync"
 
 	"github.com/artificial-universe-maker/go-utilities/keynav"
@@ -90,11 +91,15 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 
 		// Append the number of child nodes
 		if node.ChildNodes == nil {
-			bslice = append(bslice, 0)
+			b := make([]byte, 8)
+			binary.LittleEndian.PutUint64(b, uint64(0))
+			bslice = append(bslice, b...)
 		} else {
 			bslice = append(bslice, byte(len(*node.ChildNodes)))
-			for n := range *node.ChildNodes {
-				bslice = append(bslice, byte(n))
+			for _, child := range *node.ChildNodes {
+				b := make([]byte, 8)
+				binary.LittleEndian.PutUint64(b, *child.ID)
+				bslice = append(bslice, b...)
 			}
 		}
 
@@ -107,7 +112,6 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 		}
 
 		for _, input := range node.EntryInput {
-			var key string
 			if node.ParentNodes == nil {
 				key := keynav.CompiledDialogRootWithinZone(pubID, zoneID, string(input))
 				redisWriter <- helpers.RedisBytes{
@@ -133,7 +137,7 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 	}
 
 	wg.Add(len(*node.ChildNodes))
-	for i, child := range *node.ChildNodes {
+	for _, child := range *node.ChildNodes {
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
 			CompileDialog(pubID, zoneID, node, redisWriter)

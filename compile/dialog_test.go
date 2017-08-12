@@ -62,19 +62,24 @@ func TestCompileDialog(t *testing.T) {
 	(*block.Statements)[0][0].Exec.PlaySounds[0].Value = "This is AUM!"
 	(*block.Statements)[0][0].Exec.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
 	(*block.Statements)[0][0].Exec.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
-	(*block.Statements)[0][0].Operators = &models.OrGroup{}
-	(*block.Statements)[0][0].Operators[0] = &models.AndGroup{}
+	// orgroup := make(models.OrGroup, 1)
+	// (*block.Statements)[0][0].Operators = &orgroup
+	// (*(*block.Statements)[0][0].Operators)[0] = models.AndGroup{}
 
-	dialog := models.AumDialog{}
-	dialog.Nodes = make([]models.AumDialogNode, 1)
-	dialog.Nodes[0] = models.AumDialogNode{}
-	dialog.Nodes[0].LogicalSet = *block
-
+	dialog := models.AumDialogNode{}
+	i := uint64(9001)
+	dialog.ID = &i
+	dialog.LogicalSet = *block
+	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputGreeting)
+	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputFarewell)
 	redisWriter := make(chan helpers.RedisBytes)
 
-	CompileDialog(dialog, redisWriter)
+	go func() {
+		for v := range redisWriter {
+			fmt.Println(v)
+		}
+	}()
 
-	fmt.Println(<-redisWriter)
-	fmt.Println(<-redisWriter)
-	fmt.Println(<-redisWriter)
+	CompileDialog(1, 0, dialog, redisWriter)
+	close(redisWriter)
 }
