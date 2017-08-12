@@ -9,12 +9,8 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-func compileNodeHelper(idx int, node *models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
+func compileNodeHelper(idx int, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
 	lblock := models.LBlock{}
-
-	// Prepare an array for processed "Or" blocks
-	stmt := make([][]models.LStatement, len(*node.LogicalSet.Statements))
-	lblock.Statements = &stmt
 
 	wg := sync.WaitGroup{}
 
@@ -31,6 +27,15 @@ func compileNodeHelper(idx int, node *models.AumDialogNode, redisWriter chan hel
 		}
 		lblock.AlwaysExec = key
 	}()
+
+	if node.LogicalSet.Statements == nil {
+		wg.Wait()
+		return helpers.CompileLogic(&lblock)
+	}
+
+	// Prepare an array for processed "Or" blocks
+	stmt := make([][]models.LStatement, len(*node.LogicalSet.Statements))
+	lblock.Statements = &stmt
 
 	// Iterate through conditional statements
 	for j, OrBlock := range *node.LogicalSet.Statements {
@@ -63,22 +68,21 @@ func compileNodeHelper(idx int, node *models.AumDialogNode, redisWriter chan hel
 	return helpers.CompileLogic(&lblock)
 }
 
-func CompileDialog(id int, dialog models.AumDialog, redisWriter chan helpers.RedisBytes) {
+func CompileDialog(dialog models.AumDialog, redisWriter chan helpers.RedisBytes) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(dialog.Nodes))
 	for i, node := range dialog.Nodes {
-		go func() {
-			defer wg.Done()
-			compiledNode := compileNodeHelper(i, &node, redisWriter)
+		go func(i int, node models.AumDialogNode) {
+			wg.Done()
+			compiledNode := compileNodeHelper(i, node, redisWriter)
 			key := keynav.CompiledEntities(1, models.AEIDActors)
 
 			redisWriter <- helpers.RedisBytes{
 				Key:   key,
 				Bytes: compiledNode,
 			}
-		}()
+		}(i, node)
 	}
 
 	wg.Wait()
-
 }

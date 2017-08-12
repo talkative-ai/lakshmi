@@ -126,6 +126,10 @@ func CompileLogic(logic *models.LBlock) []byte {
 	compiled = append(compiled, b...)
 	compiled = append(compiled, []byte(logic.AlwaysExec)...)
 
+	if logic.Statements == nil {
+		return compiled
+	}
+
 	compiled = append(compiled, uint8(len(*logic.Statements)))
 
 	c := make(chan BSliceIndex)
