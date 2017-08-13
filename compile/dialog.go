@@ -54,7 +54,7 @@ func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan
 				defer wg.Done()
 				bslice := prepare.BundleActions(Statement.Exec)
 
-				key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, bundleCount.Incr())
+				key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 
 				redisWriter <- helpers.RedisBytes{
 					Key:   key,
