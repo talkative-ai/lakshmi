@@ -129,7 +129,7 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
 			CompileDialog(pubID, zoneID, node, redisWriter)
-		}(child)
+		}(*child)
 	}
 	wg.Wait()
 }

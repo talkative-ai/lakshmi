@@ -46,12 +46,12 @@ func TestCompileDialog(t *testing.T) {
 	dialog2.LogicalSet = *block2
 	dialog2.EntryInput = append(dialog2.EntryInput, models.AumDialogInputFarewell)
 
-	parents := make([]models.AumDialogNode, 1)
-	parents[0] = dialog
+	parents := make([]*models.AumDialogNode, 1)
+	parents[0] = &dialog
 	dialog2.ParentNodes = &parents
 
-	children := make([]models.AumDialogNode, 1)
-	children[0] = dialog2
+	children := make([]*models.AumDialogNode, 1)
+	children[0] = &dialog2
 	dialog.ChildNodes = &children
 
 	redisWriter := make(chan helpers.RedisBytes)

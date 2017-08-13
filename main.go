@@ -19,5 +19,4 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func initiateCompiler(project_id string) {
-
 }
