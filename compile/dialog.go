@@ -3,6 +3,7 @@ package compile
 import (
 	"encoding/binary"
 	"sync"
+	"sync/atomic"
 
 	"github.com/artificial-universe-maker/go-utilities/keynav"
 	"github.com/artificial-universe-maker/go-utilities/models"
@@ -10,24 +11,11 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-type counter struct {
-	mu sync.Mutex
-	v  uint64
-}
-
-func (c *counter) Incr() uint64 {
-	c.mu.Lock()
-	v := c.v
-	c.v++
-	c.mu.Unlock()
-	return v
-}
-
 func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
-	var bundleCount counter
+	bundleCount := uint64(0)
 
 	// Bundle the AlwaysExec actions
 	wg.Add(1)
@@ -35,7 +23,7 @@ func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan
 		defer wg.Done()
 
 		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
-		key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, bundleCount.Incr())
+		key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 		redisWriter <- helpers.RedisBytes{
 			Key:   key,
 			Bytes: bslice,
