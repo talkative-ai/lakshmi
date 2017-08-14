@@ -28,8 +28,9 @@ func TestCompileDialog(t *testing.T) {
 	(*block.Statements)[0][0].Exec.PlaySounds[1].Value, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
 
 	dialog := models.AumDialogNode{}
-	i := uint64(9001)
-	dialog.ID = &i
+	dialog.ID = uint64(9001)
+	dialog.ProjectID = 1
+	dialog.ZoneID = 1
 	dialog.LogicalSet = *block
 	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputGreeting)
 	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputQuestionVerb)
@@ -41,8 +42,9 @@ func TestCompileDialog(t *testing.T) {
 	block2.AlwaysExec.PlaySounds[0].Value = "I'm a nested dialog node. Goodbye"
 
 	dialog2 := models.AumDialogNode{}
-	i2 := uint64(9002)
-	dialog2.ID = &i2
+	dialog2.ID = uint64(9002)
+	dialog2.ProjectID = 1
+	dialog2.ZoneID = 1
 	dialog2.LogicalSet = *block2
 	dialog2.EntryInput = append(dialog2.EntryInput, models.AumDialogInputFarewell)
 
@@ -73,5 +75,5 @@ func TestCompileDialog(t *testing.T) {
 		}
 	}()
 
-	CompileDialog(1, 0, dialog, redisWriter)
+	CompileDialog(dialog, redisWriter)
 }

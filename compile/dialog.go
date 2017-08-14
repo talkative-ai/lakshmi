@@ -11,7 +11,7 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
+func compileNodeHelper(node models.AumDialogNode, redisWriter chan helpers.RedisBytes) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
@@ -23,7 +23,7 @@ func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan
 		defer wg.Done()
 
 		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
-		key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, atomic.AddUint64(&bundleCount, 1)-1)
+		key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 		redisWriter <- helpers.RedisBytes{
 			Key:   key,
 			Bytes: bslice,
@@ -54,7 +54,7 @@ func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan
 				defer wg.Done()
 				bslice := prepare.BundleActions(Statement.Exec)
 
-				key := keynav.CompiledDialogNodeActionBundle(pubID, *node.ID, atomic.AddUint64(&bundleCount, 1)-1)
+				key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 
 				redisWriter <- helpers.RedisBytes{
 					Key:   key,
@@ -69,7 +69,7 @@ func compileNodeHelper(pubID uint64, node models.AumDialogNode, redisWriter chan
 	return helpers.CompileLogic(&lblock)
 }
 
-func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redisWriter chan helpers.RedisBytes) {
+func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisBytes) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func(node models.AumDialogNode) {
@@ -86,13 +86,13 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 			bslice = append(bslice, byte(len(*node.ChildNodes)))
 			for _, child := range *node.ChildNodes {
 				b := make([]byte, 8)
-				binary.LittleEndian.PutUint64(b, *child.ID)
+				binary.LittleEndian.PutUint64(b, child.ID)
 				bslice = append(bslice, b...)
 			}
 		}
 
-		bslice = append(bslice, compileNodeHelper(pubID, node, redisWriter)...)
-		compiledKey := keynav.CompiledEntity(pubID, models.AEIDDialogNode, *node.ID)
+		bslice = append(bslice, compileNodeHelper(node, redisWriter)...)
+		compiledKey := keynav.CompiledEntity(node.ProjectID, models.AEIDDialogNode, node.ID)
 
 		redisWriter <- helpers.RedisBytes{
 			Key:   compiledKey,
@@ -101,14 +101,14 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 
 		for _, input := range node.EntryInput {
 			if node.ParentNodes == nil {
-				key := keynav.CompiledDialogRootWithinZone(pubID, zoneID, string(input))
+				key := keynav.CompiledDialogRootWithinZone(node.ProjectID, node.ZoneID, string(input))
 				redisWriter <- helpers.RedisBytes{
 					Key:   key,
 					Bytes: []byte(compiledKey),
 				}
 			} else {
 				for _, parent := range *node.ParentNodes {
-					key := keynav.CompiledDialogNodeWithinZone(pubID, zoneID, *parent.ID, string(input))
+					key := keynav.CompiledDialogNodeWithinZone(node.ProjectID, node.ZoneID, parent.ID, string(input))
 					redisWriter <- helpers.RedisBytes{
 						Key:   key,
 						Bytes: []byte(compiledKey),
@@ -128,7 +128,7 @@ func CompileDialog(pubID uint64, zoneID uint64, node models.AumDialogNode, redis
 	for _, child := range *node.ChildNodes {
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
-			CompileDialog(pubID, zoneID, node, redisWriter)
+			CompileDialog(node, redisWriter)
 		}(*child)
 	}
 	wg.Wait()
