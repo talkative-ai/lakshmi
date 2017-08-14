@@ -84,6 +84,8 @@ func CompileDialog(node models.AumDialogNode, redisWriter chan helpers.RedisByte
 			bslice = append(bslice, b...)
 		} else {
 			bslice = append(bslice, byte(len(*node.ChildNodes)))
+
+			// Append every child node ID
 			for _, child := range *node.ChildNodes {
 				b := make([]byte, 8)
 				binary.LittleEndian.PutUint64(b, child.ID)

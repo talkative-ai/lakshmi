@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/artificial-universe-maker/lakshmi/compile"
 
@@ -170,12 +171,21 @@ func initiateCompiler(project_id uint64) error {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	for k, isRoot := range dialogGraphRoots {
 		if !*isRoot {
 			continue
 		}
-		compile.CompileDialog(*dialogGraph[k], redisWriter)
+		wg.Add(1)
+		node := *dialogGraph[k]
+		go func(node models.AumDialogNode) {
+			defer wg.Done()
+			compile.CompileDialog(node, redisWriter)
+		}(node)
 	}
+
+	wg.Wait()
 
 	return nil
 }
