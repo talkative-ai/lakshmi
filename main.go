@@ -119,8 +119,6 @@ func initiateCompiler(project_id uint64) error {
 		if _, ok := dialogGraph[item.DialogID]; !ok {
 			dialogGraph[item.DialogID] = &models.AumDialogNode{}
 			dialogGraph[item.DialogID].EntryInput = []models.AumDialogInput{}
-			dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
-			dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
 			dialogGraph[item.DialogID].LogicalSet = models.RawLBlock{}
 			dialogGraph[item.DialogID].ID = item.DialogID
 			dialogGraph[item.DialogID].ZoneID = item.ZoneID
@@ -135,6 +133,8 @@ func initiateCompiler(project_id uint64) error {
 		}
 
 		if item.ParentDialogID == item.DialogID {
+
+			dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
 
 			if dialogGraphRoots[item.DialogID] == nil {
 				v := true
@@ -154,6 +154,11 @@ func initiateCompiler(project_id uint64) error {
 				}
 			}
 		} else {
+			dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
+
+			v := false
+			dialogGraphRoots[item.DialogID] = &v
+
 			p := dialogGraph[item.ParentDialogID]
 			if p != nil {
 				hasEdge := edge[item.DialogID]
@@ -164,8 +169,6 @@ func initiateCompiler(project_id uint64) error {
 					p.ChildNodes = &appendedParents
 					edge[item.DialogID] = true
 					edge[item.ParentDialogID] = true
-					v := false
-					dialogGraphRoots[item.DialogID] = &v
 				}
 			}
 		}
