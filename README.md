@@ -104,3 +104,12 @@ The backend will then convert it to a byte stream:
             - uint8 value type
             - uint16 buffer length (if necessary)
             - value
+
+
+
+TODO:
+- Better define triggers
+- Compile triggers
+- Handle dialog node cycles (Create a "IsRoot" bool?)
+- Handle comparison logic
+- Implement additional ARAs
