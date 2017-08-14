@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/artificial-universe-maker/lakshmi/compile"
@@ -40,6 +42,21 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 	initiateCompiler(project_id)
 }
 
+type StringArray struct {
+	val []string
+}
+
+func (arr *StringArray) Value() (driver.Value, error) {
+	return arr.val, nil
+}
+
+func (arr *StringArray) Scan(src interface{}) error {
+	str := string(src.([]byte))
+	str = str[1 : len(str)-1]
+	arr.val = strings.Split(str, ",")
+	return nil
+}
+
 func initiateCompiler(project_id uint64) error {
 
 	err := db.InitializeDB()
@@ -51,7 +68,7 @@ func initiateCompiler(project_id uint64) error {
 		ProjectID            uint64
 		ZoneID               uint64
 		DialogID             uint64
-		DialogEntry          string
+		DialogEntry          StringArray
 		ParentDialogID       uint64
 		ChildDialogID        uint64
 		LogicalSetAlways     string
@@ -123,13 +140,13 @@ func initiateCompiler(project_id uint64) error {
 			dialogGraph[item.DialogID].ID = item.DialogID
 			dialogGraph[item.DialogID].ZoneID = item.ZoneID
 			dialogGraph[item.DialogID].ProjectID = item.ProjectID
-			dialogEntrySet[item.DialogID] = map[string]bool{}
-		}
 
-		json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].LogicalSet.AlwaysExec)
-		if ok := dialogEntrySet[item.DialogID][item.DialogEntry]; !ok {
-			dialogGraph[item.DialogID].EntryInput = append(dialogGraph[item.DialogID].EntryInput, models.AumDialogInput(item.DialogEntry))
-			dialogEntrySet[item.DialogID][item.DialogEntry] = true
+			dialogGraph[item.DialogID].EntryInput = make([]models.AumDialogInput, len(item.DialogEntry.val))
+			for idx, val := range item.DialogEntry.val {
+				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
+			}
+			dialogEntrySet[item.DialogID] = map[string]bool{}
+			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].LogicalSet.AlwaysExec)
 		}
 
 		if item.ParentDialogID == item.DialogID {
