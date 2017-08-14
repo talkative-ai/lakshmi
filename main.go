@@ -3,23 +3,17 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
-	"sync/atomic"
 
 	"github.com/artificial-universe-maker/lakshmi/compile"
-
-	"github.com/artificial-universe-maker/go-utilities/keynav"
 
 	"github.com/artificial-universe-maker/go-utilities/db"
 	"github.com/artificial-universe-maker/go-utilities/models"
 	"github.com/artificial-universe-maker/go-utilities/myerrors"
 	"github.com/artificial-universe-maker/go-utilities/providers"
 	"github.com/artificial-universe-maker/lakshmi/helpers"
-	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
 func main() {
@@ -114,75 +108,67 @@ func initiateCompiler(project_id uint64) error {
 		}
 	}()
 
-	var wg sync.WaitGroup
-	var bundleCount uint64
-
 	dialogGraph := map[uint64]*models.AumDialogNode{}
 	dialogGraphRoots := map[uint64]*bool{}
+	dialogEntrySet := map[uint64]map[string]bool{}
 	edge := map[uint64]bool{}
 
 	for _, item := range items {
-		wg.Add(1)
 
-		go func(item ProjectItem) {
-			defer wg.Done()
+		if _, ok := dialogGraph[item.DialogID]; !ok {
+			dialogGraph[item.DialogID] = &models.AumDialogNode{}
+			dialogGraph[item.DialogID].EntryInput = []models.AumDialogInput{}
+			dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
+			dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
+			dialogGraph[item.DialogID].LogicalSet = models.RawLBlock{}
+			dialogGraph[item.DialogID].ID = item.DialogID
+			dialogGraph[item.DialogID].ZoneID = item.ZoneID
+			dialogGraph[item.DialogID].ProjectID = item.ProjectID
+			dialogEntrySet[item.DialogID] = map[string]bool{}
+		}
 
-			var AAS models.AumActionSet
-			json.Unmarshal([]byte(item.LogicalSetAlways), &AAS)
-			k := keynav.CompiledDialogNodeActionBundle(item.ProjectID, item.DialogID, atomic.AddUint64(&bundleCount, 1))
-			AASCompiled := prepare.BundleActions(AAS)
-			redisWriter <- helpers.RedisBytes{Key: k, Bytes: AASCompiled}
+		json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].LogicalSet.AlwaysExec)
+		if ok := dialogEntrySet[item.DialogID][item.DialogEntry]; !ok {
+			dialogGraph[item.DialogID].EntryInput = append(dialogGraph[item.DialogID].EntryInput, models.AumDialogInput(item.DialogEntry))
+			dialogEntrySet[item.DialogID][item.DialogEntry] = true
+		}
 
-			k = keynav.CompiledEntity(item.ProjectID, models.AEIDDialogNode, item.DialogID)
+		if item.ParentDialogID == item.DialogID {
 
-			if _, ok := dialogGraph[item.DialogID]; !ok {
-				dialogGraph[item.DialogID] = &models.AumDialogNode{}
-				dialogGraph[item.DialogID].EntryInput = []models.AumDialogInput{}
-				dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
-				dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
-				dialogGraph[item.DialogID].ID = item.DialogID
-				dialogGraph[item.DialogID].ZoneID = item.ZoneID
-				dialogGraph[item.DialogID].ProjectID = item.ProjectID
+			if dialogGraphRoots[item.DialogID] == nil {
+				v := true
+				dialogGraphRoots[item.DialogID] = &v
 			}
 
-			if item.ParentDialogID == item.DialogID {
-				c := dialogGraph[item.ChildDialogID]
-				if c != nil {
-					hasEdge := edge[item.DialogID]
-					if !hasEdge {
-						appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
-						dialogGraph[item.DialogID].ChildNodes = &appendedChildren
-						appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
-						c.ParentNodes = &appendedParents
-						edge[item.DialogID] = true
-						edge[item.ChildDialogID] = true
-
-						if dialogGraphRoots[item.DialogID] == nil {
-							v := true
-							dialogGraphRoots[item.DialogID] = &v
-						}
-					}
-				}
-			} else {
-				p := dialogGraph[item.ParentDialogID]
-				if p != nil {
-					hasEdge := edge[item.DialogID]
-					if !hasEdge {
-						appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
-						dialogGraph[item.DialogID].ParentNodes = &appendedChildren
-						appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
-						p.ChildNodes = &appendedParents
-						edge[item.DialogID] = true
-						edge[item.ParentDialogID] = true
-						v := false
-						dialogGraphRoots[item.DialogID] = &v
-					}
+			c := dialogGraph[item.ChildDialogID]
+			if c != nil {
+				hasEdge := edge[item.DialogID]
+				if !hasEdge {
+					appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
+					dialogGraph[item.DialogID].ChildNodes = &appendedChildren
+					appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
+					c.ParentNodes = &appendedParents
+					edge[item.DialogID] = true
+					edge[item.ChildDialogID] = true
 				}
 			}
-		}(item)
+		} else {
+			p := dialogGraph[item.ParentDialogID]
+			if p != nil {
+				hasEdge := edge[item.DialogID]
+				if !hasEdge {
+					appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
+					dialogGraph[item.DialogID].ParentNodes = &appendedChildren
+					appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
+					p.ChildNodes = &appendedParents
+					edge[item.DialogID] = true
+					edge[item.ParentDialogID] = true
+					v := false
+					dialogGraphRoots[item.DialogID] = &v
+				}
+			}
+		}
 	}
-
-	wg.Wait()
 
 	for k, isRoot := range dialogGraphRoots {
 		if !*isRoot {
@@ -190,8 +176,6 @@ func initiateCompiler(project_id uint64) error {
 		}
 		compile.CompileDialog(*dialogGraph[k], redisWriter)
 	}
-
-	fmt.Printf("%+v", items)
 
 	return nil
 }
