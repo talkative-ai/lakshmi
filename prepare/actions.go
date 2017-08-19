@@ -3,23 +3,23 @@ package prepare
 import (
 	"encoding/binary"
 
+	"github.com/artificial-universe-maker/go-utilities/common"
 	"github.com/artificial-universe-maker/go-utilities/models"
-	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
 func BundleActions(AAS models.AumActionSet) []byte {
 	bundle := []byte{}
 	bslices := make([][]byte, len(AAS.PlaySounds))
-	cinner := make(chan helpers.BSliceIndex)
+	cinner := make(chan common.BSliceIndex)
 	i := 0
 	for a := range AAS.Iterable() {
-		go func(idx int, a models.AumRuntimeAction, cinner chan helpers.BSliceIndex) {
+		go func(idx int, a models.AumRuntimeAction, cinner chan common.BSliceIndex) {
 			bytes := []byte{}
 			b := make([]byte, 8)
 			binary.LittleEndian.PutUint64(b, uint64(a.GetAAID()))
 			bytes = append(bytes, b...)
 			bytes = append(bytes, a.Compile()...)
-			finished := helpers.BSliceIndex{Index: idx, Bslice: bytes}
+			finished := common.BSliceIndex{Index: idx, Bslice: bytes}
 			cinner <- finished
 		}(i, a, cinner)
 		i++

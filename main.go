@@ -1,22 +1,18 @@
 package main
 
 import (
-	"database/sql"
-	"database/sql/driver"
-	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
-	"sync"
 
 	"github.com/artificial-universe-maker/lakshmi/compile"
 
+	"github.com/artificial-universe-maker/go-utilities/common"
 	"github.com/artificial-universe-maker/go-utilities/db"
 	"github.com/artificial-universe-maker/go-utilities/models"
 	"github.com/artificial-universe-maker/go-utilities/myerrors"
 	"github.com/artificial-universe-maker/go-utilities/providers"
-	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
 func main() {
@@ -27,7 +23,7 @@ func main() {
 func processRequest(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
-	project_id, err := strconv.ParseUint(r.Form.Get("project-id"), 10, 64)
+	projectID, err := strconv.ParseUint(r.Form.Get("project-id"), 10, 64)
 
 	if err != nil {
 		myerrors.Respond(w, &myerrors.MySimpleError{
@@ -39,44 +35,17 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	initiateCompiler(project_id)
+	initiateCompiler(projectID)
 }
 
-type StringArray struct {
-	val []string
-}
-
-func (arr *StringArray) Value() (driver.Value, error) {
-	return arr.val, nil
-}
-
-func (arr *StringArray) Scan(src interface{}) error {
-	str := string(src.([]byte))
-	str = str[1 : len(str)-1]
-	arr.val = strings.Split(str, ",")
-	return nil
-}
-
-func initiateCompiler(project_id uint64) error {
+func initiateCompiler(projectID uint64) error {
 
 	err := db.InitializeDB()
 	if err != nil {
 		return err
 	}
 
-	type ProjectItem struct {
-		ProjectID            uint64
-		ZoneID               uint64
-		DialogID             uint64
-		DialogEntry          StringArray
-		ParentDialogID       uint64
-		ChildDialogID        uint64
-		LogicalSetAlways     string
-		LogicalSetStatements sql.NullString
-		LogicalSetID         uint64
-	}
-
-	var items []ProjectItem
+	var items []common.ProjectItem
 	_, err = db.DBMap.Select(&items, `
 		SELECT
 			p.id ProjectID,
@@ -104,7 +73,7 @@ func initiateCompiler(project_id uint64) error {
 		WHERE
 			(p.id=$1 AND z.id=p.id AND d.zone_id=z.id AND ls.id = d.logical_set_id)
 			AND (dr.parent_node_id = d.id OR d.id = dr.child_node_id)
-		`, project_id)
+		`, projectID)
 	if err != nil {
 		return err
 	}
@@ -117,7 +86,7 @@ func initiateCompiler(project_id uint64) error {
 	}
 	defer redis.Close()
 
-	redisWriter := make(chan helpers.RedisBytes)
+	redisWriter := make(chan common.RedisBytes)
 	defer close(redisWriter)
 
 	go func() {
@@ -126,86 +95,29 @@ func initiateCompiler(project_id uint64) error {
 		}
 	}()
 
-	dialogGraph := map[uint64]*models.AumDialogNode{}
-	dialogGraphRoots := map[uint64]*bool{}
-	dialogEntrySet := map[uint64]map[string]bool{}
-	edge := map[uint64]bool{}
-
-	for _, item := range items {
-
-		if _, ok := dialogGraph[item.DialogID]; !ok {
-			dialogGraph[item.DialogID] = &models.AumDialogNode{}
-			dialogGraph[item.DialogID].EntryInput = []models.AumDialogInput{}
-			dialogGraph[item.DialogID].LogicalSet = models.RawLBlock{}
-			dialogGraph[item.DialogID].ID = item.DialogID
-			dialogGraph[item.DialogID].ZoneID = item.ZoneID
-			dialogGraph[item.DialogID].ProjectID = item.ProjectID
-
-			dialogGraph[item.DialogID].EntryInput = make([]models.AumDialogInput, len(item.DialogEntry.val))
-			for idx, val := range item.DialogEntry.val {
-				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
-			}
-			dialogEntrySet[item.DialogID] = map[string]bool{}
-			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].LogicalSet.AlwaysExec)
-		}
-
-		if item.ParentDialogID == item.DialogID {
-
-			dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
-
-			if dialogGraphRoots[item.DialogID] == nil {
-				v := true
-				dialogGraphRoots[item.DialogID] = &v
-			}
-
-			c := dialogGraph[item.ChildDialogID]
-			if c != nil {
-				hasEdge := edge[item.DialogID]
-				if !hasEdge {
-					appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
-					dialogGraph[item.DialogID].ChildNodes = &appendedChildren
-					appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
-					c.ParentNodes = &appendedParents
-					edge[item.DialogID] = true
-					edge[item.ChildDialogID] = true
-				}
-			}
-		} else {
-			dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
-
-			v := false
-			dialogGraphRoots[item.DialogID] = &v
-
-			p := dialogGraph[item.ParentDialogID]
-			if p != nil {
-				hasEdge := edge[item.DialogID]
-				if !hasEdge {
-					appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
-					dialogGraph[item.DialogID].ParentNodes = &appendedChildren
-					appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
-					p.ChildNodes = &appendedParents
-					edge[item.DialogID] = true
-					edge[item.ParentDialogID] = true
-				}
-			}
-		}
+	type compileDialogResult struct {
+		Graph map[uint64]*models.AumDialogNode
+		Error error
 	}
 
-	var wg sync.WaitGroup
+	compileDialogResultChannel := make(chan compileDialogResult)
 
-	for k, isRoot := range dialogGraphRoots {
-		if !*isRoot {
-			continue
+	go func() {
+		fmt.Println("Compiling dialog and graph")
+		graph, err := compile.CompileDialog(redisWriter, &items)
+		result := compileDialogResult{graph, err}
+		compileDialogResultChannel <- result
+	}()
+
+	select {
+	case result := <-compileDialogResultChannel:
+		if result.Error != nil {
+			fmt.Println("There was a problem compiling/saving the dialog", err)
+			return err
 		}
-		wg.Add(1)
-		node := *dialogGraph[k]
-		go func(node models.AumDialogNode) {
-			defer wg.Done()
-			compile.CompileDialog(node, redisWriter)
-		}(node)
-	}
 
-	wg.Wait()
+		fmt.Println("Successfully compiled and stored dialog graph")
+	}
 
 	return nil
 }

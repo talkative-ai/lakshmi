@@ -1,9 +1,14 @@
 With respect to Redis, the following are samples of how the compiled data is to be stored:
 ```
-compiled:{pub_id}:meta:static:[...properties]
-compiled:{pub_id}:meta:static:[...dynamic]
-compiled:{pub_id}:e:{entity_enum}:{entity_id}
+compiled:{pub\_id}:meta:static:[...properties]
+compiled:{pub\_id}:meta:dynamic:[...properties]
+compiled:{pub\_id}:e:{entity\_enum}:{entity\_id}
 ```
+
+The following static properties are used as metadata in the smartspeaker
+compiled:{pub\_id}:meta:static:name string
+compiled:{pub\_id}:meta:static:authors set
+compiled:{pub\_id}:meta:dynamic:plays integer
 
 The following are valid entities
 ```
@@ -17,8 +22,8 @@ Zones
   compiled:{pid}:0
   -- Dialogs --
   -- The following is a List of out-logic node IDs
-  -- Human readable version compiled:{pub_id}:{Zones}:{zone_id}:entities:{Dialogs}:input
-  compiled:{pid}:e:0:{zid}:e:2:i:[...inputs_compiled] binary_outlogic
+  -- Human readable version compiled:{pub\_id}:{Zones}:{zone\_id}:entities:{Dialogs}:input
+  compiled:{pid}:e:0:{zid}:e:2:i:[...inputs\_compiled] binary\_outlogic
 
 ```
 Out-logic node
@@ -71,13 +76,13 @@ Therefore
 This object can be read as the following pseudocode
 (In practice it will never truly look like this, however):
 ```js
-run(dialog_action_bundle_id_4)
+run(dialog\_action\_bundle\_id\_4)
 if ((global.foo === "bar" && global.hello === "world") || global.count > 100) {
-	run(dialog_action_bundle_id_1000)
+	run(dialog\_action\_bundle\_id\_1000)
 } else if (global.bar === "foo" && global.world === "hello" && global.count <= 100) {
-	run(dialog_action_bundle_id_2000)
+	run(dialog\_action\_bundle\_id\_2000)
 } else {
-    run(dialog_action_bundle_id_3000)
+    run(dialog\_action\_bundle\_id\_3000)
 }
 ```
 

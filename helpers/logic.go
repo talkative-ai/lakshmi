@@ -3,6 +3,7 @@ package helpers
 import (
 	"encoding/binary"
 
+	"github.com/artificial-universe-maker/go-utilities/common"
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
@@ -53,7 +54,7 @@ func compileHelper(o *models.OrGroup) []byte {
 	return compiled
 }
 
-func compileStatement(stmtidx *lStatementIndex, cinner chan BSliceIndex) {
+func compileStatement(stmtidx *lStatementIndex, cinner chan common.BSliceIndex) {
 	bslice := []byte{}
 
 	if stmtidx.Stmt.Operators != nil {
@@ -65,19 +66,19 @@ func compileStatement(stmtidx *lStatementIndex, cinner chan BSliceIndex) {
 	binary.LittleEndian.PutUint16(b, uint16(len(stmtidx.Stmt.Exec)))
 	bslice = append(bslice, b...)
 	bslice = append(bslice, []byte(stmtidx.Stmt.Exec)...)
-	bsliceidx := BSliceIndex{
+	bsliceidx := common.BSliceIndex{
 		Bslice: bslice,
 		Index:  stmtidx.Index,
 	}
 	cinner <- bsliceidx
 }
 
-func compileStatements(cidx *lStatementsIndex, c chan BSliceIndex) {
+func compileStatements(cidx *lStatementsIndex, c chan common.BSliceIndex) {
 	bslice := []byte{}
 
 	bslice = append(bslice, uint8(len(cidx.Statements)))
 
-	cinner := make(chan BSliceIndex)
+	cinner := make(chan common.BSliceIndex)
 	for idx, stmt := range cidx.Statements {
 		go compileStatement(&lStatementIndex{
 			Stmt:  stmt,
@@ -111,7 +112,7 @@ func compileStatements(cidx *lStatementsIndex, c chan BSliceIndex) {
 	// Compiled statements
 	finished = append(finished, bslice...)
 
-	bsliceidx := BSliceIndex{
+	bsliceidx := common.BSliceIndex{
 		Bslice: finished,
 		Index:  cidx.Index,
 	}
@@ -132,7 +133,7 @@ func CompileLogic(logic *models.LBlock) []byte {
 
 	compiled = append(compiled, uint8(len(*logic.Statements)))
 
-	c := make(chan BSliceIndex)
+	c := make(chan common.BSliceIndex)
 	for idx, conditional := range *logic.Statements {
 		go compileStatements(&lStatementsIndex{
 			Statements: conditional,

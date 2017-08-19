@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/artificial-universe-maker/go-utilities/common"
 	"github.com/artificial-universe-maker/go-utilities/models"
 	"github.com/artificial-universe-maker/go-utilities/providers"
-	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
 func TestCompileDialog(t *testing.T) {
@@ -56,7 +56,7 @@ func TestCompileDialog(t *testing.T) {
 	children[0] = &dialog2
 	dialog.ChildNodes = &children
 
-	redisWriter := make(chan helpers.RedisBytes)
+	redisWriter := make(chan common.RedisBytes)
 	defer close(redisWriter)
 
 	os.Setenv("REDIS_ADDR", "localhost:6379")
