@@ -11,7 +11,7 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisBytes) []byte {
+func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisCommand) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
@@ -24,10 +24,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisB
 
 		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
 		key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
-		redisWriter <- common.RedisBytes{
-			Key:   key,
-			Bytes: bslice,
-		}
+		redisWriter <- common.RedisSET(key, bslice)
 		lblock.AlwaysExec = key
 	}()
 
@@ -56,10 +53,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisB
 
 				key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 
-				redisWriter <- common.RedisBytes{
-					Key:   key,
-					Bytes: bslice,
-				}
+				redisWriter <- common.RedisSET(key, bslice)
 				(*lblock.Statements)[idx1][idx2] = models.LStatement{Operators: Statement.Operators, Exec: key}
 			}(j, k, Statement)
 		}
@@ -69,7 +63,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisB
 	return CompileLogic(&lblock)
 }
 
-func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisBytes) {
+func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func(node models.AumDialogNode) {
@@ -96,25 +90,16 @@ func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisB
 		bslice = append(bslice, compileNodeHelper(node, redisWriter)...)
 		compiledKey := keynav.CompiledEntity(node.ProjectID, models.AEIDDialogNode, node.ID)
 
-		redisWriter <- common.RedisBytes{
-			Key:   compiledKey,
-			Bytes: bslice,
-		}
+		redisWriter <- common.RedisSET(compiledKey, bslice)
 
 		for _, input := range node.EntryInput {
 			if node.ParentNodes == nil {
-				key := keynav.CompiledDialogRootWithinZone(node.ProjectID, node.ZoneID, string(input))
-				redisWriter <- common.RedisBytes{
-					Key:   key,
-					Bytes: []byte(compiledKey),
-				}
+				key := keynav.CompiledDialogRootWithinZone(node.ProjectID, node.ZoneID)
+				redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
 			} else {
 				for _, parent := range *node.ParentNodes {
-					key := keynav.CompiledDialogNodeWithinZone(node.ProjectID, node.ZoneID, parent.ID, string(input))
-					redisWriter <- common.RedisBytes{
-						Key:   key,
-						Bytes: []byte(compiledKey),
-					}
+					key := keynav.CompiledDialogNodeWithinZone(node.ProjectID, node.ZoneID, parent.ID)
+					redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
 				}
 			}
 		}

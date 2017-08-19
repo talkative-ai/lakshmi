@@ -88,14 +88,14 @@ func initiateCompiler(projectID uint64) error {
 	}
 	defer redis.Close()
 
-	redisWriter := make(chan common.RedisBytes)
+	redisWriter := make(chan common.RedisCommand)
 	defer close(redisWriter)
 
 	wg := sync.WaitGroup{}
 	go func() {
-		for v := range redisWriter {
+		for command := range redisWriter {
 			wg.Add(1)
-			redis.Set(v.Key, v.Bytes, 0)
+			command(redis)
 			wg.Done()
 		}
 	}()
@@ -106,7 +106,6 @@ func initiateCompiler(projectID uint64) error {
 	}
 
 	compileDialogChannel := make(chan compileDialogResult)
-
 	go func() {
 		fmt.Println("Compiling dialog and graph")
 		graph, err := compile.CompileDialog(redisWriter, &items)
@@ -115,7 +114,6 @@ func initiateCompiler(projectID uint64) error {
 	}()
 
 	compileMetadataChannel := make(chan error)
-
 	go func() {
 		project := models.AumProject{}
 		err = db.DBMap.SelectOne(&project, `SELECT * FROM projects WHERE id=$1`, projectID)

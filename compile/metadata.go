@@ -6,11 +6,7 @@ import (
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
-func CompileMetadata(redisWriter chan common.RedisBytes, project models.AumProject) error {
-	redisWriter <- common.RedisBytes{
-		Key:   keynav.ProjectMetadataStaticProperty(project.ID, "title"),
-		Bytes: []byte(project.Title),
-	}
-
+func CompileMetadata(redisWriter chan common.RedisCommand, project models.AumProject) error {
+	redisWriter <- common.RedisSET(keynav.ProjectMetadataStaticProperty(project.ID, "title"), []byte(project.Title))
 	return nil
 }

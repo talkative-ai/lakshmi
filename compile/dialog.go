@@ -9,7 +9,7 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
-func CompileDialog(redisWriter chan common.RedisBytes, items *[]common.ProjectItem) (map[uint64]*models.AumDialogNode, error) {
+func CompileDialog(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) (map[uint64]*models.AumDialogNode, error) {
 
 	dialogGraph := map[uint64]*models.AumDialogNode{}
 	dialogGraphRoots := map[uint64]*bool{}
