@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/artificial-universe-maker/lakshmi/compile"
 
@@ -49,6 +50,7 @@ func initiateCompiler(projectID uint64) error {
 	_, err = db.DBMap.Select(&items, `
 		SELECT
 			p.id ProjectID,
+			p.title,
 			
 			z.id ZoneID,
 			
@@ -89,9 +91,12 @@ func initiateCompiler(projectID uint64) error {
 	redisWriter := make(chan common.RedisBytes)
 	defer close(redisWriter)
 
+	wg := sync.WaitGroup{}
 	go func() {
 		for v := range redisWriter {
+			wg.Add(1)
 			redis.Set(v.Key, v.Bytes, 0)
+			wg.Done()
 		}
 	}()
 
@@ -100,24 +105,46 @@ func initiateCompiler(projectID uint64) error {
 		Error error
 	}
 
-	compileDialogResultChannel := make(chan compileDialogResult)
+	compileDialogChannel := make(chan compileDialogResult)
 
 	go func() {
 		fmt.Println("Compiling dialog and graph")
 		graph, err := compile.CompileDialog(redisWriter, &items)
 		result := compileDialogResult{graph, err}
-		compileDialogResultChannel <- result
+		compileDialogChannel <- result
 	}()
 
-	select {
-	case result := <-compileDialogResultChannel:
-		if result.Error != nil {
-			fmt.Println("There was a problem compiling/saving the dialog", err)
-			return err
-		}
+	compileMetadataChannel := make(chan error)
 
-		fmt.Println("Successfully compiled and stored dialog graph")
+	go func() {
+		project := models.AumProject{}
+		err = db.DBMap.SelectOne(&project, `SELECT * FROM projects WHERE id=$1`, projectID)
+		if err != nil {
+			compileMetadataChannel <- err
+		}
+		err := compile.CompileMetadata(redisWriter, project)
+		compileMetadataChannel <- err
+	}()
+
+	for i := 0; i < 2; i++ {
+		select {
+		case msgDialog := <-compileDialogChannel:
+			if msgDialog.Error != nil {
+				fmt.Println("There was a problem compiling/saving the dialog", msgDialog.Error)
+				return msgDialog.Error
+			}
+			fmt.Println("Successfully compiled and stored dialog graph")
+
+		case msgMetadata := <-compileMetadataChannel:
+			if msgMetadata != nil {
+				fmt.Println("There was a problem saving the metadata", msgMetadata)
+				return msgMetadata
+			}
+			fmt.Println("Successfully saved metadata")
+		}
 	}
+
+	wg.Wait()
 
 	return nil
 }
