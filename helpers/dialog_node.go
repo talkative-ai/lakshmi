@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"encoding/binary"
 	"sync"
 	"sync/atomic"
 
@@ -71,20 +70,11 @@ func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisC
 
 		bslice := []byte{}
 
-		// Append the number of child nodes
+		// Notify whether dialog continues or ends
 		if node.ChildNodes == nil {
-			b := make([]byte, 8)
-			binary.LittleEndian.PutUint64(b, uint64(0))
-			bslice = append(bslice, b...)
+			bslice = append(bslice, 0)
 		} else {
-			bslice = append(bslice, byte(len(*node.ChildNodes)))
-
-			// Append every child node ID
-			for _, child := range *node.ChildNodes {
-				b := make([]byte, 8)
-				binary.LittleEndian.PutUint64(b, child.ID)
-				bslice = append(bslice, b...)
-			}
+			bslice = append(bslice, 1)
 		}
 
 		bslice = append(bslice, compileNodeHelper(node, redisWriter)...)

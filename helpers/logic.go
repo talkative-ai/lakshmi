@@ -126,7 +126,6 @@ func CompileLogic(logic *models.LBlock) []byte {
 	binary.LittleEndian.PutUint16(b, uint16(len(logic.AlwaysExec)))
 	compiled = append(compiled, b...)
 	compiled = append(compiled, []byte(logic.AlwaysExec)...)
-
 	if logic.Statements == nil {
 		return compiled
 	}

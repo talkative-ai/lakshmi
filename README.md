@@ -118,3 +118,13 @@ TODO:
 - Handle dialog node cycles (Create a "IsRoot" bool?)
 - Handle comparison logic
 - Implement additional ARAs
+
+
+Compiled node
+- Number of nodes
+- Node IDs
+- Length of AlwaysExec key
+- AlwaysExec key
+
+Compiled logic
+- Statements when nil have no count
