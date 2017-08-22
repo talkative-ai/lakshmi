@@ -7,16 +7,6 @@ import (
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
-type lStatementsIndex struct {
-	Statements []models.LStatement
-	Index      int
-}
-
-type lStatementIndex struct {
-	Stmt  models.LStatement
-	Index int
-}
-
 func compileHelper(o *models.OrGroup) []byte {
 	compiled := []byte{}
 	OperatorStrIntMap := models.GenerateOperatorStrIntMap()
@@ -54,45 +44,42 @@ func compileHelper(o *models.OrGroup) []byte {
 	return compiled
 }
 
-func compileStatement(stmtidx *lStatementIndex, cinner chan common.BSliceIndex) {
+func compileStatement(stmt models.LStatement, idx int, cinner chan common.BSliceIndex) {
 	bslice := []byte{}
 
-	if stmtidx.Stmt.Operators != nil {
-		bslice = append(bslice, uint8(len(*stmtidx.Stmt.Operators)))
-		bslice = append(bslice, compileHelper(stmtidx.Stmt.Operators)...)
+	if stmt.Operators != nil {
+		bslice = append(bslice, uint8(len(*stmt.Operators)))
+		bslice = append(bslice, compileHelper(stmt.Operators)...)
 	}
 
 	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, uint16(len(stmtidx.Stmt.Exec)))
+	binary.LittleEndian.PutUint16(b, uint16(len(stmt.Exec)))
 	bslice = append(bslice, b...)
-	bslice = append(bslice, []byte(stmtidx.Stmt.Exec)...)
+	bslice = append(bslice, []byte(stmt.Exec)...)
 	bsliceidx := common.BSliceIndex{
 		Bslice: bslice,
-		Index:  stmtidx.Index,
+		Index:  idx,
 	}
 	cinner <- bsliceidx
 }
 
-func compileStatements(cidx *lStatementsIndex, c chan common.BSliceIndex) {
+func compileStatements(statements []models.LStatement, idx int, c chan common.BSliceIndex) {
 	bslice := []byte{}
 
-	bslice = append(bslice, uint8(len(cidx.Statements)))
+	bslice = append(bslice, uint8(len(statements)))
 
 	cinner := make(chan common.BSliceIndex)
-	for idx, stmt := range cidx.Statements {
-		go compileStatement(&lStatementIndex{
-			Stmt:  stmt,
-			Index: idx,
-		}, cinner)
+	for idx, stmt := range statements {
+		go compileStatement(stmt, idx, cinner)
 	}
 
-	newBytes := make([][]byte, len(cidx.Statements))
+	newBytes := make([][]byte, len(statements))
 
 	reg := 0
 	for b := range cinner {
 		newBytes[b.Index] = b.Bslice
 		reg++
-		if reg == len(cidx.Statements) {
+		if reg == len(statements) {
 			close(cinner)
 		}
 	}
@@ -114,7 +101,7 @@ func compileStatements(cidx *lStatementsIndex, c chan common.BSliceIndex) {
 
 	bsliceidx := common.BSliceIndex{
 		Bslice: finished,
-		Index:  cidx.Index,
+		Index:  idx,
 	}
 	c <- bsliceidx
 }
@@ -135,10 +122,7 @@ func CompileLogic(logic *models.LBlock) []byte {
 
 	c := make(chan common.BSliceIndex)
 	for idx, conditional := range *logic.Statements {
-		go compileStatements(&lStatementsIndex{
-			Statements: conditional,
-			Index:      idx,
-		}, c)
+		go compileStatements(conditional, idx, c)
 	}
 
 	newBytes := make([][]byte, len(*logic.Statements))
