@@ -119,6 +119,7 @@ func compileStatements(cidx *lStatementsIndex, c chan common.BSliceIndex) {
 	c <- bsliceidx
 }
 
+// CompileLogic compiles the logical blocks within a dialog node or trigger
 func CompileLogic(logic *models.LBlock) []byte {
 	compiled := []byte{}
 
