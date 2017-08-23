@@ -11,7 +11,7 @@ import (
 	"github.com/artificial-universe-maker/go-utilities/providers"
 )
 
-func TestCompileDialog(t *testing.T) {
+func TestDialog(t *testing.T) {
 	block := &models.RawLBlock{}
 	block.AlwaysExec = models.AumActionSet{}
 	block.AlwaysExec.PlaySounds = make([]models.ARAPlaySound, 1)
@@ -75,5 +75,5 @@ func TestCompileDialog(t *testing.T) {
 		}
 	}()
 
-	CompileDialog(dialog, redisWriter)
+	Dialog(dialog, redisWriter)
 }

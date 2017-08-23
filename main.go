@@ -108,7 +108,7 @@ func initiateCompiler(projectID uint64) error {
 	compileDialogChannel := make(chan compileDialogResult)
 	go func() {
 		fmt.Println("Compiling dialog and graph")
-		graph, err := compile.CompileDialog(redisWriter, &items)
+		graph, err := compile.Dialog(redisWriter, &items)
 		result := compileDialogResult{graph, err}
 		compileDialogChannel <- result
 	}()

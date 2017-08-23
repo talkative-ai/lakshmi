@@ -17,7 +17,7 @@ import (
 //
 // 2. 1.	If the LogicalSet has no statements, then convert the new lblock into binary
 //				(In this case that just means storing the length of the Action Bundle key)
-//				And return the value to the calling function "CompileDialogNode"
+//				And return the value to the calling function "DialogNode"
 //
 // 2. 2. 	Else prepare to compile the LogicalSet statements after bundling their actions
 //				therein.
@@ -31,7 +31,7 @@ import (
 // 5. For each statement in each array of statements, bundle the actions
 //
 // 6. Finally send it all off to be converted to bytes,
-//		and return the value to the calling function "CompileDialogNode"
+//		and return the value to the calling function "DialogNode"
 func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisCommand) []byte {
 	lblock := models.LBlock{}
 
@@ -96,10 +96,10 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 	return CompileLogic(&lblock)
 }
 
-// CompileDialogNode is a helper function to compile.CompileDialog
+// DialogNode is a helper function to compile.Dialog
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
-func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand) {
+func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func(node models.AumDialogNode) {
@@ -150,7 +150,7 @@ func CompileDialogNode(node models.AumDialogNode, redisWriter chan common.RedisC
 	for _, child := range *node.ChildNodes {
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
-			CompileDialogNode(node, redisWriter)
+			DialogNode(node, redisWriter)
 		}(*child)
 	}
 	wg.Wait()
