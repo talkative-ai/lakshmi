@@ -7,27 +7,34 @@ import (
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
+/**
+* compileHelper converts an OrGroup into a byte slice
+* where an OrGroup is an array of AndGroups
+ */
 func compileHelper(o *models.OrGroup) []byte {
 	compiled := []byte{}
 	OperatorStrIntMap := models.GenerateOperatorStrIntMap()
 
-	for _, OrGroup := range *o {
-		var availableStatements models.OperatorInt
-		for c := range OrGroup {
-			availableStatements |= OperatorStrIntMap[c]
-		}
-		compiled = append(compiled, byte(availableStatements))
-		for _, group := range OrGroup {
-			for vr, val := range group {
+	// Iterate through all AndGroups
+	for _, AndGroup := range *o {
+		for operator, varValMap := range AndGroup {
+			// Each AndGroup is associated with a logical operator
+			// Store that here
+			compiled = append(compiled, byte(OperatorStrIntMap[operator]))
+			for vr, val := range varValMap {
 				b := make([]byte, 8)
+				// Store the variable ID
 				binary.LittleEndian.PutUint64(b, uint64(vr))
 				compiled = append(compiled, b...)
 				switch v := val.(type) {
 				case string:
+					// Store an enum that identifies the value type which is being set
+					// TODO: Determine if this is needed
 					compiled = append(compiled, uint8(0))
 					b := make([]byte, 2)
 					binary.LittleEndian.PutUint16(b, uint16(len(v)))
 					compiled = append(compiled, b...)
+					// Store the value itself
 					compiled = append(compiled, []byte(v)...)
 					break
 				case int:
@@ -110,6 +117,20 @@ func compileStatements(statements []models.LStatement, idx int, c chan common.BS
 }
 
 // CompileLogic compiles the logical blocks within a dialog node or trigger
+/**
+* The way this will be run is that Brahman will load an OrGroup,
+* and then begin iterating through the AndGroups.
+* Each AndGroup maps a logical operator to a map of variables and values
+* where each variable will be compared to the value via the logical operator.
+* In JSON that could Look something like this:
+	{
+		"eq": { foo: "bar", hello: "world" }
+		"ne": { mybar: "fooval" }
+	}
+* If an AndGroup resolves to true, then the OrGroup resolves to true,
+* which means the ActionBundle specified at Exec will then mutate the runtime state.
+* Which then completes the []LStatement before moving on to the next.
+*/
 func CompileLogic(logic *models.LBlock) []byte {
 	compiled := []byte{}
 
