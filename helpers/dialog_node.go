@@ -128,11 +128,11 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 			// The reason being that root nodes may be recursively referenced by child nodes
 			// For example, a point in the dialog leads back up the dialog tree
 			if node.ParentNodes == nil {
-				key := keynav.CompiledDialogRootWithinZone(node.ProjectID, node.ZoneID)
+				key := keynav.CompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
 				redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
 			} else {
 				for _, parent := range *node.ParentNodes {
-					key := keynav.CompiledDialogNodeWithinZone(node.ProjectID, node.ZoneID, parent.ID)
+					key := keynav.CompiledDialogNodeWithinActor(node.ProjectID, node.ActorID, parent.ID)
 					redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
 				}
 			}

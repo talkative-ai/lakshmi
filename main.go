@@ -128,7 +128,14 @@ func initiateCompiler(projectID uint64) error {
 		compileMetadataChannel <- err
 	}()
 
-	for i := 0; i < 2; i++ {
+	compileActorChannel := make(chan error)
+	go func() {
+		fmt.Println("Compiling actors into zones")
+		err := compile.Actor(redisWriter, &items)
+		compileActorChannel <- err
+	}()
+
+	for i := 0; i < 3; i++ {
 		select {
 		case msgDialog := <-compileDialogChannel:
 			if msgDialog.Error != nil {
@@ -139,10 +146,18 @@ func initiateCompiler(projectID uint64) error {
 
 		case msgMetadata := <-compileMetadataChannel:
 			if msgMetadata != nil {
-				fmt.Println("There was a problem saving the metadata", msgMetadata)
+				fmt.Println("There was a problem compiling the metadata", msgMetadata)
 				return msgMetadata
 			}
-			fmt.Println("Successfully saved metadata")
+			fmt.Println("Successfully compiled metadata")
+
+		case msgActor := <-compileActorChannel:
+			if msgActor != nil {
+				fmt.Println("There was a problem compiling the actors", msgActor)
+				return msgActor
+			}
+			fmt.Println("Successfully compiled actors")
+
 		}
 	}
 

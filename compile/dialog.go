@@ -28,7 +28,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) (
 		if _, ok := dialogGraph[item.DialogID]; !ok {
 			dialogGraph[item.DialogID] = &models.AumDialogNode{
 				AumModel:   models.AumModel{ID: item.DialogID},
-				ZoneID:     item.ZoneID,
+				ActorID:    item.ActorID,
 				ProjectID:  item.ProjectID,
 				EntryInput: []models.AumDialogInput{},
 				LogicalSet: models.RawLBlock{},
