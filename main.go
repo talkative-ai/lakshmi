@@ -48,33 +48,37 @@ func initiateCompiler(projectID uint64) error {
 
 	var items []common.ProjectItem
 	_, err = db.DBMap.Select(&items, `
-		SELECT
-			p.id ProjectID,
-			p.title,
+		SELECT DISTINCT
+			p."ID" ProjectID,
+			p."Title",
 			
-			z.id ZoneID,
-			
-			d.id DialogID,
-			d.zone_id ZoneID,
-			d.entry DialogEntry,
-			d.logical_set_id LogicalSetID,
+			z."ID" ZoneID,
 
-			ls.id LogicalSetID,
-			ls.always LogicalSetAlways,
-			ls.statements LogicalSetStatements,
+			za."ActorID",
+			za."ZoneID",
+
+			d."ID" DialogID,
+			d."ActorID",
+			d."Entry" DialogEntry,
+			d."LogicalSetID",
+
+			ls."ID" LogicalSetID,
+			ls."Always" LogicalSetAlways,
+			ls."Statements" LogicalSetStatements,
 			
-			dr.parent_node_id ParentDialogID,
-			dr.child_node_id ChildDialogID
+			dr."ParentNodeID" ParentDialogID,
+			dr."ChildNodeID" ChildDialogID
 
 		FROM
-			projects p,
-			zones z,
-			dialog_nodes d,
-			dialog_nodes_relations dr,
-			logical_set ls
+			workbench_projects p,
+			workbench_zones z,
+			workbench_dialog_nodes d,
+			workbench_dialog_nodes_relations dr,
+			workbench_logical_set ls,
+			workbench_zones_actors za
 		WHERE
-			(p.id=$1 AND z.id=p.id AND d.zone_id=z.id AND ls.id = d.logical_set_id)
-			AND (dr.parent_node_id = d.id OR d.id = dr.child_node_id)
+			(p."ID"=$1 AND z."ID"=p."ID" AND za."ZoneID"=z."ID" AND d."ActorID"=za."ActorID" AND ls."ID" = d."LogicalSetID")
+			AND (dr."ParentNodeID" = d."ID" OR d."ID" = dr."ChildNodeID")
 		`, projectID)
 	if err != nil {
 		return err
@@ -116,11 +120,11 @@ func initiateCompiler(projectID uint64) error {
 	compileMetadataChannel := make(chan error)
 	go func() {
 		project := models.AumProject{}
-		err = db.DBMap.SelectOne(&project, `SELECT * FROM projects WHERE id=$1`, projectID)
+		err = db.DBMap.SelectOne(&project, `SELECT * FROM workbench_projects WHERE id=$1`, projectID)
 		if err != nil {
 			compileMetadataChannel <- err
 		}
-		err := compile.CompileMetadata(redisWriter, project)
+		err := compile.Metadata(redisWriter, project)
 		compileMetadataChannel <- err
 	}()
 

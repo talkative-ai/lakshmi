@@ -9,7 +9,8 @@ import (
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
-func CompileMetadata(redisWriter chan common.RedisCommand, project models.AumProject) error {
+// Metadata saves all of the static and dynamic project metadata
+func Metadata(redisWriter chan common.RedisCommand, project models.AumProject) error {
 	redisWriter <- common.RedisHSET(keynav.ProjectMetadataStatic(project.ID), "title", []byte(project.Title))
 	redisWriter <- common.RedisHSET(keynav.ProjectMetadataStatic(project.ID), "start_zone_id", []byte(fmt.Sprintf("%v", project.StartZone.Int64)))
 	redisWriter <- common.RedisHSET(keynav.GlobalMetaProjects(), strings.ToUpper(project.Title), []byte(fmt.Sprintf("%v", project.ID)))
