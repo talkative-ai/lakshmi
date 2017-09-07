@@ -28,6 +28,7 @@ func BundleActions(AAS models.AumActionSet) []byte {
 	for bslice := range cinner {
 		bslices[bslice.Index] = bslice.Bslice
 		c++
+		// TODO: Handle other actions here
 		if c == len(AAS.PlaySounds) {
 			close(cinner)
 		}

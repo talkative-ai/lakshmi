@@ -14,7 +14,7 @@ import (
 // Then for each dialog graph root item, it compiles it via the helper DialogNode
 // which will finish the compilation process.
 // This includes action bundles, logical blocks, and child nodes recursively.
-func Dialog(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) (map[uint64]*models.AumDialogNode, error) {
+func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uint64]*models.AumDialogNode, error) {
 
 	dialogGraph := map[uint64]*models.AumDialogNode{}
 	dialogGraphRoots := map[uint64]*bool{}
@@ -31,7 +31,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) (
 				ActorID:    item.ActorID,
 				ProjectID:  item.ProjectID,
 				EntryInput: []models.AumDialogInput{},
-				LogicalSet: models.RawLBlock{},
+				RawLBlock:  item.RawLBlock,
 			}
 
 			// Here we can convert a string value into an AumDialogInput value
@@ -46,7 +46,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) (
 				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
 			}
 			dialogEntrySet[item.DialogID] = map[string]bool{}
-			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].LogicalSet.AlwaysExec)
+			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].AlwaysExec)
 		}
 
 		if item.ParentDialogID == item.DialogID {

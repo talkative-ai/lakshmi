@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,7 +19,11 @@ import (
 
 func main() {
 	http.HandleFunc("/", processRequest)
-	http.ListenAndServe(":8080", nil)
+	log.Println("Lakshmi starting server on localhost:8080")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func processRequest(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +44,12 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 	initiateCompiler(projectID)
 }
 
+type SyncGroup struct {
+	wg     sync.WaitGroup
+	wgMu   sync.Mutex
+	wgSema uint8
+}
+
 func initiateCompiler(projectID uint64) error {
 
 	err := db.InitializeDB()
@@ -46,7 +57,7 @@ func initiateCompiler(projectID uint64) error {
 		return err
 	}
 
-	var items []common.ProjectItem
+	var items []models.ProjectItem
 	_, err = db.DBMap.Select(&items, `
 		SELECT DISTINCT
 			p."ID" ProjectID,
@@ -59,12 +70,9 @@ func initiateCompiler(projectID uint64) error {
 
 			d."ID" DialogID,
 			d."ActorID",
-			d."Entry" DialogEntry,
-			d."LogicalSetID",
-
-			ls."ID" LogicalSetID,
-			ls."Always" LogicalSetAlways,
-			ls."Statements" LogicalSetStatements,
+			d."EntryInput" DialogEntry,
+			d."AlwaysExec",
+			d."Statements",
 			
 			dr."ParentNodeID" ParentDialogID,
 			dr."ChildNodeID" ChildDialogID
@@ -74,33 +82,37 @@ func initiateCompiler(projectID uint64) error {
 			workbench_zones z,
 			workbench_dialog_nodes d,
 			workbench_dialog_nodes_relations dr,
-			workbench_logical_set ls,
 			workbench_zones_actors za
 		WHERE
-			(p."ID"=$1 AND z."ID"=p."ID" AND za."ZoneID"=z."ID" AND d."ActorID"=za."ActorID" AND ls."ID" = d."LogicalSetID")
+			(p."ID"=$1 AND z."ID"=p."ID" AND za."ZoneID"=z."ID" AND d."ActorID"=za."ActorID")
 			AND (dr."ParentNodeID" = d."ID" OR d."ID" = dr."ChildNodeID")
 		`, projectID)
 	if err != nil {
 		return err
 	}
 
-	os.Setenv("REDIS_ADDR", "localhost:6379")
-	os.Setenv("REDIS_PASSWORD", "")
+	if os.Getenv("REDIS_ADDR") == "" {
+		os.Setenv("REDIS_ADDR", "127.0.0.1:6379")
+		os.Setenv("REDIS_PASSWORD", "")
+	}
 	redis, err := providers.ConnectRedis()
 	if err != nil {
 		return err
 	}
 	defer redis.Close()
 
-	redisWriter := make(chan common.RedisCommand)
+	redisWriter := make(chan common.RedisCommand, 1)
 	defer close(redisWriter)
 
-	wg := sync.WaitGroup{}
+	swg := SyncGroup{}
+
 	go func() {
 		for command := range redisWriter {
-			wg.Add(1)
+			swg.wgMu.Lock()
+			swg.wg.Add(1)
 			command(redis)
-			wg.Done()
+			swg.wg.Done()
+			swg.wgMu.Unlock()
 		}
 	}()
 
@@ -120,11 +132,11 @@ func initiateCompiler(projectID uint64) error {
 	compileMetadataChannel := make(chan error)
 	go func() {
 		project := models.AumProject{}
-		err = db.DBMap.SelectOne(&project, `SELECT * FROM workbench_projects WHERE id=$1`, projectID)
+		err = db.DBMap.SelectOne(&project, `SELECT * FROM workbench_projects WHERE "ID"=$1`, projectID)
 		if err != nil {
 			compileMetadataChannel <- err
 		}
-		err := compile.Metadata(redisWriter, project)
+		err := compile.Metadata(redisWriter, project, &items)
 		compileMetadataChannel <- err
 	}()
 
@@ -161,7 +173,10 @@ func initiateCompiler(projectID uint64) error {
 		}
 	}
 
-	wg.Wait()
+	swg.wgMu.Lock()
+	swg.wgSema = 1
+	swg.wgMu.Unlock()
+	swg.wg.Wait()
 
 	return nil
 }

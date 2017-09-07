@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -10,22 +11,22 @@ import (
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 
-// compileNodeHelper relates to compiling the node.LogicalSet and the actions therein
+// compileNodeHelper relates to compiling the node.RawLBlock and the actions therein
 // It does this in the following steps
 //
 // 1. Bundle the AlwaysExec actions and store the key to the Action Bundle in the lblock
 //
-// 2. 1.	If the LogicalSet has no statements, then convert the new lblock into binary
+// 2. 1.	If the.RawLBlock has no statements, then convert the new lblock into binary
 //				(In this case that just means storing the length of the Action Bundle key)
 //				And return the value to the calling function "DialogNode"
 //
-// 2. 2. 	Else prepare to compile the LogicalSet statements after bundling their actions
+// 2. 2. 	Else prepare to compile the.RawLBlock statements after bundling their actions
 //				therein.
 //
-// 3. Every value accessed in node.LogicalSet will now be mirrored in the lblock variable
-//		This is because lblock node.LogicalSet compiled
+// 3. Every value accessed in node.RawLBlock will now be mirrored in the lblock variable
+//		This is because lblock node.RawLBlock compiled
 //
-// 4. Iterate through the entire array of node.LogicalSet.Statements,
+// 4. Iterate through the entire array of node.RawLBlock.Statements,
 //		which is an array of arrays of statements
 //
 // 5. For each statement in each array of statements, bundle the actions
@@ -45,32 +46,32 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		bslice := prepare.BundleActions(node.LogicalSet.AlwaysExec)
+		bslice := prepare.BundleActions(node.RawLBlock.AlwaysExec)
 		key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 		redisWriter <- common.RedisSET(key, bslice)
 		lblock.AlwaysExec = key
 	}()
 
-	// 2. 1.	If the LogicalSet has no statements, then convert the new lblock into binary
+	// 2. 1.	If the.RawLBlock has no statements, then convert the new lblock into binary
 	//				In this case that just means storing the length of the Action Bundle key
-	if node.LogicalSet.Statements == nil {
+	if node.RawLBlock.Statements == nil {
 		wg.Wait()
 		return CompileLogic(&lblock)
 	}
 
-	// 2. 2. 	Else prepare to compile the LogicalSet statements after bundling their actions therein
-	stmt := make([][]models.LStatement, len(*node.LogicalSet.Statements))
-	// 3. Every value accessed in node.LogicalSet will now be mirrored in the lblock variable
-	//		This is because lblock node.LogicalSet compiled
+	// 2. 2. 	Else prepare to compile the.RawLBlock statements after bundling their actions therein
+	stmt := make([][]models.LStatement, len(*node.RawLBlock.Statements))
+	// 3. Every value accessed in node.RawLBlock will now be mirrored in the lblock variable
+	//		This is because lblock node.RawLBlock compiled
 	lblock.Statements = &stmt
 
-	// 4. Iterate through the entire array of node.LogicalSet.Statements, which is an array of arrays of statements
-	for j, Statements := range *node.LogicalSet.Statements {
+	// 4. Iterate through the entire array of node.RawLBlock.Statements, which is an array of arrays of statements
+	for j, Statements := range *node.RawLBlock.Statements {
 
 		// Prepare an array for individual processed "if/elif/else" blocks
 		// Again, as per note 3:
-		// 3. Every value accessed in node.LogicalSet will now be mirrored in the lblock variable
-		//		This is because lblock node.LogicalSet compiled
+		// 3. Every value accessed in node.RawLBlock will now be mirrored in the lblock variable
+		//		This is because lblock node.RawLBlock compiled
 		(*lblock.Statements)[j] = make([]models.LStatement, len(Statements))
 
 		// 5. For each statement in each array of statements, bundle the actions
@@ -85,8 +86,8 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 
 				redisWriter <- common.RedisSET(key, bslice)
 				// Again, as per note 3:
-				// 3. Every value accessed in node.LogicalSet will now be mirrored in the lblock variable
-				//		This is because lblock node.LogicalSet compiled
+				// 3. Every value accessed in node.RawLBlock will now be mirrored in the lblock variable
+				//		This is because lblock node.RawLBlock compiled
 				(*lblock.Statements)[idx1][idx2] = models.LStatement{Operators: Statement.Operators, Exec: key}
 			}(j, k, Statement)
 		}
@@ -124,16 +125,17 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 		// Creating a Redis hash which maps every user input to the node's key
 		// This enables Brahman to match a user input to the node data while remaining normalized
 		for _, input := range node.EntryInput {
+			inp := strings.ToUpper(string(input))
 			// TODO: This should be a boolean indicator designating root status
 			// The reason being that root nodes may be recursively referenced by child nodes
 			// For example, a point in the dialog leads back up the dialog tree
 			if node.ParentNodes == nil {
 				key := keynav.CompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
-				redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
+				redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 			} else {
 				for _, parent := range *node.ParentNodes {
 					key := keynav.CompiledDialogNodeWithinActor(node.ProjectID, node.ActorID, parent.ID)
-					redisWriter <- common.RedisHSET(key, string(input), []byte(compiledKey))
+					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 				}
 			}
 		}

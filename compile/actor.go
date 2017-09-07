@@ -3,12 +3,16 @@ package compile
 import (
 	"github.com/artificial-universe-maker/go-utilities/common"
 	"github.com/artificial-universe-maker/go-utilities/keynav"
+	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
-func Actor(redisWriter chan common.RedisCommand, items *[]common.ProjectItem) error {
+func Actor(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) error {
 	zoneActorMap := map[uint64]map[uint64]bool{}
 	var projectID uint64
 	for _, item := range *items {
+		if _, ok := zoneActorMap[item.ZoneID]; !ok {
+			zoneActorMap[item.ZoneID] = map[uint64]bool{}
+		}
 		projectID = item.ProjectID
 		zoneActorMap[item.ZoneID][item.ActorID] = true
 	}

@@ -1,0 +1,4 @@
+FROM golang:1.8
+WORKDIR /go/src/github.com/artificial-universe-maker/lakshmi
+ENTRYPOINT ["go"]fjfjdlafjdskla
+CMD ["run", "main.go"]fdsafdsaf
