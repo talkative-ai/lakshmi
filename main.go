@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/artificial-universe-maker/go-utilities/keynav"
+
 	"github.com/artificial-universe-maker/lakshmi/compile"
 
 	"github.com/artificial-universe-maker/go-utilities/common"
@@ -48,6 +50,11 @@ type SyncGroup struct {
 	wg     sync.WaitGroup
 	wgMu   sync.Mutex
 	wgSema uint8
+}
+
+type SyncMap struct {
+	Value map[string]bool
+	Mutex sync.Mutex
 }
 
 func initiateCompiler(projectID uint64) error {
@@ -101,18 +108,33 @@ func initiateCompiler(projectID uint64) error {
 	}
 	defer redis.Close()
 
+	// Delete old published data
+	membersSlice := redis.SMembers(fmt.Sprintf("%v:%v", keynav.ProjectMetadataStatic(projectID), "keys"))
+	redis.Del(membersSlice.Val()...)
+
 	redisWriter := make(chan common.RedisCommand, 1)
 	defer close(redisWriter)
 
 	swg := SyncGroup{}
+	smap := SyncMap{}
+	smap.Value = map[string]bool{}
+
+	trackRedisKeys := true
 
 	go func() {
 		for command := range redisWriter {
 			swg.wgMu.Lock()
 			swg.wg.Add(1)
-			command(redis)
+			command.Exec(redis)
 			swg.wg.Done()
 			swg.wgMu.Unlock()
+
+			// Track all saved keys so that later we can remove them all in a republish
+			if trackRedisKeys {
+				smap.Mutex.Lock()
+				smap.Value[command.Key] = true
+				smap.Mutex.Unlock()
+			}
 		}
 	}()
 
@@ -177,6 +199,11 @@ func initiateCompiler(projectID uint64) error {
 	swg.wgSema = 1
 	swg.wgMu.Unlock()
 	swg.wg.Wait()
+
+	// Save all redis keys
+	for rkey := range smap.Value {
+		common.RedisSADD(fmt.Sprintf("%v:%v", keynav.ProjectMetadataStatic(projectID), "keys"), []byte(rkey)).Exec(redis)
+	}
 
 	return nil
 }
