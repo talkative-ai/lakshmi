@@ -43,7 +43,16 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	initiateCompiler(projectID)
+	err = initiateCompiler(projectID)
+	if err != nil {
+		myerrors.Respond(w, &myerrors.MySimpleError{
+			Code:    http.StatusInternalServerError,
+			Log:     err.Error(),
+			Req:     r,
+			Message: "Invalid project-id",
+		})
+		return
+	}
 }
 
 type SyncGroup struct {
@@ -80,19 +89,21 @@ func initiateCompiler(projectID uint64) error {
 			d."EntryInput" DialogEntry,
 			d."AlwaysExec",
 			d."Statements",
+			d."IsRoot",
 			
 			dr."ParentNodeID" ParentDialogID,
 			dr."ChildNodeID" ChildDialogID
 
-		FROM
-			workbench_projects p,
-			workbench_zones z,
-			workbench_dialog_nodes d,
-			workbench_dialog_nodes_relations dr,
-			workbench_zones_actors za
-		WHERE
-			(p."ID"=$1 AND z."ID"=p."ID" AND za."ZoneID"=z."ID" AND d."ActorID"=za."ActorID")
-			AND (dr."ParentNodeID" = d."ID" OR d."ID" = dr."ChildNodeID")
+			FROM workbench_projects p
+			JOIN workbench_zones z
+				ON z."ProjectID" = p."ID"
+			JOIN workbench_zones_actors za
+				ON za."ZoneID"=z."ID"
+			JOIN workbench_dialog_nodes d
+				ON d."ActorID"=za."ActorID"
+			FULL OUTER JOIN workbench_dialog_nodes_relations dr
+				ON dr."ParentNodeID"=d."ID" OR dr."ChildNodeID"=d."ID"
+			WHERE p."ID"=$1
 		`, projectID)
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -126,13 +127,13 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 		// This enables Brahman to match a user input to the node data while remaining normalized
 		for _, input := range node.EntryInput {
 			inp := strings.ToUpper(string(input))
-			// TODO: This should be a boolean indicator designating root status
-			// The reason being that root nodes may be recursively referenced by child nodes
-			// For example, a point in the dialog leads back up the dialog tree
-			if node.ParentNodes == nil {
+
+			if node.IsRoot {
 				key := keynav.CompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
+				fmt.Println("root", key)
 				redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
-			} else {
+			}
+			if node.ParentNodes != nil {
 				for _, parent := range *node.ParentNodes {
 					key := keynav.CompiledDialogNodeWithinActor(node.ProjectID, node.ActorID, parent.ID)
 					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))

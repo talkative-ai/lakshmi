@@ -9,16 +9,31 @@ import (
 
 func BundleActions(AAS models.AumActionSet) []byte {
 	bundle := []byte{}
-	bslices := make([][]byte, len(AAS.PlaySounds))
 	cinner := make(chan common.BSliceIndex)
+	actionCount := 0
+	for range AAS.Iterable() {
+		actionCount++
+	}
+	bslices := make([][]byte, actionCount)
 	i := 0
 	for a := range AAS.Iterable() {
 		go func(idx int, a models.AumRuntimeAction, cinner chan common.BSliceIndex) {
 			bytes := []byte{}
+
+			// Store the AAID
 			b := make([]byte, 8)
 			binary.LittleEndian.PutUint64(b, uint64(a.GetAAID()))
 			bytes = append(bytes, b...)
-			bytes = append(bytes, a.Compile()...)
+
+			// Store the length of the compiled data
+			// This should never reach 4GB but having a buffer is always good
+			compiled := a.Compile()
+			b = make([]byte, 4)
+			binary.LittleEndian.PutUint32(b, uint32(len(compiled)))
+			bytes = append(bytes, b...)
+
+			// Store compiled data
+			bytes = append(bytes, compiled...)
 			finished := common.BSliceIndex{Index: idx, Bslice: bytes}
 			cinner <- finished
 		}(i, a, cinner)
@@ -29,7 +44,7 @@ func BundleActions(AAS models.AumActionSet) []byte {
 		bslices[bslice.Index] = bslice.Bslice
 		c++
 		// TODO: Handle other actions here
-		if c == len(AAS.PlaySounds) {
+		if c == actionCount {
 			close(cinner)
 		}
 	}
