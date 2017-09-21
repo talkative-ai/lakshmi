@@ -32,7 +32,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 				ProjectID:  item.ProjectID,
 				EntryInput: []models.AumDialogInput{},
 				RawLBlock:  item.RawLBlock,
-				IsRoot:     item.IsRoot,
+				IsRoot:     &item.IsRoot,
 			}
 
 			// Here we can convert a string value into an AumDialogInput value

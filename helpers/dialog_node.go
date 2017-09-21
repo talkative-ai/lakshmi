@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -128,9 +127,8 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 		for _, input := range node.EntryInput {
 			inp := strings.ToUpper(string(input))
 
-			if node.IsRoot {
+			if node.IsRoot != nil && *node.IsRoot {
 				key := keynav.CompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
-				fmt.Println("root", key)
 				redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 			}
 			if node.ParentNodes != nil {
