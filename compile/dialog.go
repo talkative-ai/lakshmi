@@ -26,13 +26,14 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		// Many ProjectItems have repeating DialogIDs
 		// This is because they're SQL rows from a join query
 		if _, ok := dialogGraph[item.DialogID]; !ok {
+			isRoot := item.IsRoot
 			dialogGraph[item.DialogID] = &models.AumDialogNode{
 				AumModel:   models.AumModel{ID: item.DialogID},
 				ActorID:    item.ActorID,
 				ProjectID:  item.ProjectID,
 				EntryInput: []models.AumDialogInput{},
 				RawLBlock:  item.RawLBlock,
-				IsRoot:     &item.IsRoot,
+				IsRoot:     &isRoot,
 			}
 
 			// Here we can convert a string value into an AumDialogInput value

@@ -76,23 +76,23 @@ func initiateCompiler(projectID uint64) error {
 	var items []models.ProjectItem
 	_, err = db.DBMap.Select(&items, `
 		SELECT DISTINCT
-			p."ID" ProjectID,
+			p."ID" "ProjectID",
 			p."Title",
 			
-			z."ID" ZoneID,
+			z."ID" "ZoneID",
 
 			za."ActorID",
 			za."ZoneID",
 
-			d."ID" DialogID,
+			d."ID" "DialogID",
 			d."ActorID",
-			d."EntryInput" DialogEntry,
+			d."EntryInput" "DialogEntry",
 			d."AlwaysExec",
 			d."Statements",
 			d."IsRoot",
 			
-			dr."ParentNodeID" ParentDialogID,
-			dr."ChildNodeID" ChildDialogID
+			dr."ParentNodeID" "ParentDialogID",
+			dr."ChildNodeID" "ChildDialogID"
 
 			FROM workbench_projects p
 			JOIN workbench_zones z
