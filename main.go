@@ -168,6 +168,7 @@ func initiateCompiler(projectID uint64) error {
 		err = db.DBMap.SelectOne(&project, `SELECT * FROM workbench_projects WHERE "ID"=$1`, projectID)
 		if err != nil {
 			compileMetadataChannel <- err
+			return
 		}
 		err := compile.Metadata(redisWriter, project, &items)
 		compileMetadataChannel <- err
@@ -180,7 +181,40 @@ func initiateCompiler(projectID uint64) error {
 		compileActorChannel <- err
 	}()
 
-	for i := 0; i < 3; i++ {
+	compileTriggerChannel := make(chan error)
+	go func() {
+		fmt.Println("Compiling triggers into zones")
+		var items []models.ProjectTriggerItem
+		_, err = db.DBMap.Select(&items, `
+			SELECT DISTINCT
+				p."ID" "ProjectID",
+				z."ID" "ZoneID",
+				t."ID" "TriggerID",
+				za."ActorID",
+				za."ZoneID",
+				t."AlwaysExec",
+				t."Statements"
+
+				FROM workbench_projects p
+				JOIN workbench_zones z
+					ON z."ProjectID" = p."ID"
+				JOIN workbench_zones_triggers zt
+					ON zt."ZoneID"=z."ID"
+				JOIN workbench_dialog_nodes d
+					ON d."ActorID"=za."ActorID"
+				FULL OUTER JOIN workbench_dialog_nodes_relations dr
+					ON dr."ParentNodeID"=d."ID" OR dr."ChildNodeID"=d."ID"
+				WHERE p."ID"=$1
+			`, projectID)
+		if err != nil {
+			compileTriggerChannel <- err
+			return
+		}
+		err := compile.Trigger(redisWriter, &items)
+		compileTriggerChannel <- err
+	}()
+
+	for i := 0; i < 4; i++ {
 		select {
 		case msgDialog := <-compileDialogChannel:
 			if msgDialog.Error != nil {
@@ -203,9 +237,17 @@ func initiateCompiler(projectID uint64) error {
 			}
 			fmt.Println("Successfully compiled actors")
 
+		case msgTrigger := <-compileTriggerChannel:
+			if msgTrigger != nil {
+				fmt.Println("There was a problem compiling the triggers", msgTrigger)
+				return msgTrigger
+			}
+			fmt.Println("Successfully compiled triggers")
+
 		}
 	}
 
+	// This ensures that all Redis commands complete execution before closing out
 	swg.wgMu.Lock()
 	swg.wgSema = 1
 	swg.wgMu.Unlock()
