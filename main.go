@@ -188,21 +188,19 @@ func initiateCompiler(projectID uint64) error {
 				p."ID" "ProjectID",
 				z."ID" "ZoneID",
 				t."ID" "TriggerID",
-				za."ActorID",
-				za."ZoneID",
+				zt."TriggerID",
+				zt."ZoneID",
 				t."AlwaysExec",
 				t."Statements"
 
-				FROM workbench_projects p
-				JOIN workbench_zones z
-					ON z."ProjectID" = p."ID"
-				JOIN workbench_zones_triggers zt
-					ON zt."ZoneID"=z."ID"
-				JOIN workbench_dialog_nodes d
-					ON d."ActorID"=za."ActorID"
-				FULL OUTER JOIN workbench_dialog_nodes_relations dr
-					ON dr."ParentNodeID"=d."ID" OR dr."ChildNodeID"=d."ID"
-				WHERE p."ID"=$1
+			FROM workbench_projects p
+			JOIN workbench_zones z
+				ON z."ProjectID" = p."ID"
+			JOIN workbench_zones_triggers zt
+				ON zt."ZoneID"=z."ID"
+			JOIN workbench_triggers t
+				ON t."ID"=zt."TriggerID"
+			WHERE p."ID"=$1
 			`, projectID)
 		if err != nil {
 			compileTriggerChannel <- err
