@@ -2,7 +2,6 @@ package compile
 
 import (
 	"github.com/artificial-universe-maker/go-utilities/common"
-	"github.com/artificial-universe-maker/go-utilities/keynav"
 	"github.com/artificial-universe-maker/go-utilities/models"
 )
 
@@ -19,7 +18,7 @@ func Actor(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) er
 
 	for zoneID, mapping := range zoneActorMap {
 		for actorID := range mapping {
-			redisWriter <- common.RedisSADD(keynav.CompiledActorsWithinZone(projectID, zoneID), actorID)
+			redisWriter <- common.RedisSADD(models.KeynavCompiledActorsWithinZone(projectID, zoneID), actorID)
 		}
 	}
 

@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/artificial-universe-maker/go-utilities/keynav"
-
 	"github.com/artificial-universe-maker/lakshmi/compile"
 
 	"github.com/artificial-universe-maker/go-utilities/common"
@@ -120,7 +118,7 @@ func initiateCompiler(projectID uint64) error {
 	defer redis.Close()
 
 	// Delete old published data
-	membersSlice := redis.SMembers(fmt.Sprintf("%v:%v", keynav.ProjectMetadataStatic(projectID), "keys"))
+	membersSlice := redis.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"))
 	redis.Del(membersSlice.Val()...)
 
 	redisWriter := make(chan common.RedisCommand, 1)
@@ -255,7 +253,7 @@ func initiateCompiler(projectID uint64) error {
 
 	// Save all redis keys
 	for rkey := range smap.Value {
-		common.RedisSADD(fmt.Sprintf("%v:%v", keynav.ProjectMetadataStatic(projectID), "keys"), []byte(rkey)).Exec(redis)
+		common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"), []byte(rkey)).Exec(redis)
 	}
 
 	return nil

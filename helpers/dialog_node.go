@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/artificial-universe-maker/go-utilities/common"
-	"github.com/artificial-universe-maker/go-utilities/keynav"
 	"github.com/artificial-universe-maker/go-utilities/models"
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
@@ -47,7 +46,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 	go func() {
 		defer wg.Done()
 		bslice := prepare.BundleActions(node.RawLBlock.AlwaysExec)
-		key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
+		key := models.KeynavCompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 		redisWriter <- common.RedisSET(key, bslice)
 		lblock.AlwaysExec = key
 	}()
@@ -82,7 +81,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 				defer wg.Done()
 				bslice := prepare.BundleActions(Statement.Exec)
 
-				key := keynav.CompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
+				key := models.KeynavCompiledDialogNodeActionBundle(node.ProjectID, node.ID, atomic.AddUint64(&bundleCount, 1)-1)
 
 				redisWriter <- common.RedisSET(key, bslice)
 				// Again, as per note 3:
@@ -117,7 +116,7 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 
 		// Save the compiled logical blocks and action bundles
 		bslice = append(bslice, compileNodeHelper(node, redisWriter)...)
-		compiledKey := keynav.CompiledEntity(node.ProjectID, models.AEIDDialogNode, node.ID)
+		compiledKey := models.KeynavCompiledEntity(node.ProjectID, models.AEIDDialogNode, node.ID)
 
 		// Send it to be written to Redis
 		redisWriter <- common.RedisSET(compiledKey, bslice)
@@ -128,12 +127,12 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 			inp := strings.ToUpper(string(input))
 
 			if node.IsRoot != nil && *node.IsRoot {
-				key := keynav.CompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
+				key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID, node.ActorID)
 				redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 			}
 			if node.ParentNodes != nil {
 				for _, parent := range *node.ParentNodes {
-					key := keynav.CompiledDialogNodeWithinActor(node.ProjectID, node.ActorID, parent.ID)
+					key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID, node.ActorID, parent.ID)
 					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 				}
 			}
