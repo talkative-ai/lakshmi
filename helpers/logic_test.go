@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/artificial-universe-maker/go-utilities/models"
+	"github.com/artificial-universe-maker/core/models"
 )
 
 func TestCompileLogic(t *testing.T) {

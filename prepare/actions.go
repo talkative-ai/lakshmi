@@ -3,8 +3,8 @@ package prepare
 import (
 	"encoding/binary"
 
-	"github.com/artificial-universe-maker/go-utilities/common"
-	"github.com/artificial-universe-maker/go-utilities/models"
+	"github.com/artificial-universe-maker/core/common"
+	"github.com/artificial-universe-maker/core/models"
 )
 
 func BundleActions(AAS models.AumActionSet) []byte {

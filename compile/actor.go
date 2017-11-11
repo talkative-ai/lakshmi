@@ -1,8 +1,8 @@
 package compile
 
 import (
-	"github.com/artificial-universe-maker/go-utilities/common"
-	"github.com/artificial-universe-maker/go-utilities/models"
+	"github.com/artificial-universe-maker/core/common"
+	"github.com/artificial-universe-maker/core/models"
 )
 
 func Actor(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) error {

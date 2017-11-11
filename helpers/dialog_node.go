@@ -5,8 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/artificial-universe-maker/go-utilities/common"
-	"github.com/artificial-universe-maker/go-utilities/models"
+	"github.com/artificial-universe-maker/core/common"
+	"github.com/artificial-universe-maker/core/models"
 	"github.com/artificial-universe-maker/lakshmi/prepare"
 )
 

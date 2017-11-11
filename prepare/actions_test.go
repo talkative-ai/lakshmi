@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/artificial-universe-maker/go-utilities/models"
+	"github.com/artificial-universe-maker/core/models"
 )
 
 func TestBundleActions(t *testing.T) {
