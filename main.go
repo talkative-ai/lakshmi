@@ -196,10 +196,8 @@ func initiateCompiler(projectID uint64) error {
 			FROM workbench_projects p
 			JOIN workbench_zones z
 				ON z."ProjectID" = p."ID"
-			JOIN workbench_zones_triggers zt
-				ON zt."ZoneID"=z."ID"
 			JOIN workbench_triggers t
-				ON t."ID"=zt."TriggerID"
+				ON t."ZoneID"=z."ID"
 			WHERE p."ID"=$1
 			`, projectID)
 		if err != nil {
