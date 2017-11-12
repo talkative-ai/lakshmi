@@ -17,7 +17,7 @@ func Trigger(redisWriter chan common.RedisCommand, items *[]models.ProjectTrigge
 		bundle++
 		lblock := models.LBlock{}
 
-		key := models.KeynavCompiledTriggerActionBundle(item.ProjectID, item.TriggerID, bundle)
+		key := models.KeynavCompiledTriggerActionBundle(item.ProjectID, item.ZoneID, uint64(item.TriggerType), bundle)
 		bslice := prepare.BundleActions(item.RawLBlock.AlwaysExec)
 		lblock.AlwaysExec = key
 		redisWriter <- common.RedisSET(key, bslice)

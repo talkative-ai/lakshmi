@@ -187,9 +187,7 @@ func initiateCompiler(projectID uint64) error {
 			SELECT DISTINCT
 				p."ID" "ProjectID",
 				z."ID" "ZoneID",
-				t."ID" "TriggerID",
-				zt."TriggerID",
-				zt."ZoneID",
+				t."TriggerType",
 				t."AlwaysExec",
 				t."Statements"
 
