@@ -104,6 +104,10 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 		processed.Value = map[uint64]bool{}
 	}
 	processed.Mutex.Lock()
+	if processed.Value[node.ID] {
+		processed.Mutex.Unlock()
+		return
+	}
 	processed.Value[node.ID] = true
 	processed.Mutex.Unlock()
 	wg := sync.WaitGroup{}
@@ -154,10 +158,6 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 	// For every child node, recurse this operation
 	wg.Add(len(*node.ChildNodes))
 	for _, child := range *node.ChildNodes {
-		if processed.Value[child.ID] {
-			wg.Done()
-			continue
-		}
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
 			DialogNode(node, redisWriter, processed)
