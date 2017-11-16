@@ -100,10 +100,10 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
 func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUint64) {
+	processed.Mutex.Lock()
 	if processed.Value == nil {
 		processed.Value = map[uint64]bool{}
 	}
-	processed.Mutex.Lock()
 	if processed.Value[node.ID] {
 		processed.Mutex.Unlock()
 		return
