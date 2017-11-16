@@ -59,11 +59,6 @@ type SyncGroup struct {
 	wgSema uint8
 }
 
-type SyncMap struct {
-	Value map[string]bool
-	Mutex sync.Mutex
-}
-
 func initiateCompiler(projectID uint64) error {
 
 	err := db.InitializeDB()
@@ -125,8 +120,6 @@ func initiateCompiler(projectID uint64) error {
 	defer close(redisWriter)
 
 	swg := SyncGroup{}
-	smap := SyncMap{}
-	smap.Value = map[string]bool{}
 
 	trackRedisKeys := true
 
@@ -135,15 +128,13 @@ func initiateCompiler(projectID uint64) error {
 			swg.wgMu.Lock()
 			swg.wg.Add(1)
 			command.Exec(redis)
-			swg.wg.Done()
-			swg.wgMu.Unlock()
 
 			// Track all saved keys so that later we can remove them all in a republish
 			if trackRedisKeys {
-				smap.Mutex.Lock()
-				smap.Value[command.Key] = true
-				smap.Mutex.Unlock()
+				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"), []byte(command.Key)).Exec(redis)
 			}
+			swg.wg.Done()
+			swg.wgMu.Unlock()
 		}
 	}()
 
@@ -244,11 +235,6 @@ func initiateCompiler(projectID uint64) error {
 	swg.wgSema = 1
 	swg.wgMu.Unlock()
 	swg.wg.Wait()
-
-	// Save all redis keys
-	for rkey := range smap.Value {
-		common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"), []byte(rkey)).Exec(redis)
-	}
 
 	return nil
 }

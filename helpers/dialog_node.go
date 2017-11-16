@@ -99,7 +99,13 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 // DialogNode is a helper function to compile.Dialog
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
-func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand) {
+func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUint64) {
+	if processed.Value == nil {
+		processed.Value = map[uint64]bool{}
+	}
+	processed.Mutex.Lock()
+	processed.Value[node.ID] = true
+	processed.Mutex.Unlock()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func(node models.AumDialogNode) {
@@ -148,9 +154,13 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand)
 	// For every child node, recurse this operation
 	wg.Add(len(*node.ChildNodes))
 	for _, child := range *node.ChildNodes {
+		if processed.Value[child.ID] {
+			wg.Done()
+			continue
+		}
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
-			DialogNode(node, redisWriter)
+			DialogNode(node, redisWriter, processed)
 		}(*child)
 	}
 	wg.Wait()
