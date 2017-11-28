@@ -6,6 +6,7 @@ import (
 
 	"github.com/artificial-universe-maker/core/common"
 	"github.com/artificial-universe-maker/core/models"
+	uuid "github.com/artificial-universe-maker/go.uuid"
 	"github.com/artificial-universe-maker/lakshmi/helpers"
 )
 
@@ -14,12 +15,12 @@ import (
 // Then for each dialog graph root item, it compiles it via the helper DialogNode
 // which will finish the compilation process.
 // This includes action bundles, logical blocks, and child nodes recursively.
-func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uint64]*models.AumDialogNode, error) {
+func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uuid.UUID]*models.AumDialogNode, error) {
 
-	dialogGraph := map[uint64]*models.AumDialogNode{}
-	dialogGraphRoots := map[uint64]bool{}
-	dialogEntrySet := map[uint64]map[string]bool{}
-	edgeTo := map[uint64]map[uint64]bool{}
+	dialogGraph := map[uuid.UUID]*models.AumDialogNode{}
+	dialogGraphRoots := map[uuid.UUID]bool{}
+	dialogEntrySet := map[uuid.UUID]map[uuid.UUID]bool{}
+	edgeTo := map[uuid.UUID]map[uuid.UUID]bool{}
 
 	for _, item := range *items {
 
@@ -28,7 +29,9 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		if _, ok := dialogGraph[item.DialogID]; !ok {
 			isRoot := item.IsRoot
 			dialogGraph[item.DialogID] = &models.AumDialogNode{
-				AumModel:   models.AumModel{ID: item.DialogID},
+				AumModel: models.AumModel{
+					ID: item.DialogID,
+				},
 				ActorID:    item.ActorID,
 				ProjectID:  item.ProjectID,
 				EntryInput: []models.AumDialogInput{},
@@ -36,7 +39,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 				IsRoot:     &isRoot,
 			}
 
-			edgeTo[item.DialogID] = map[uint64]bool{}
+			edgeTo[item.DialogID] = map[uuid.UUID]bool{}
 
 			// Here we can convert a string value into an AumDialogInput value
 			// as the dialog entry point.
@@ -49,7 +52,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			for idx, val := range item.DialogEntry.Val {
 				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
 			}
-			dialogEntrySet[item.DialogID] = map[string]bool{}
+			dialogEntrySet[item.DialogID] = map[uuid.UUID]bool{}
 			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].AlwaysExec)
 
 			if item.IsRoot {
@@ -57,23 +60,23 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			}
 		}
 
-		if item.ParentDialogID.Valid && uint64(item.ParentDialogID.Int64) == item.DialogID {
+		if item.ParentDialogID.Valid && item.ParentDialogID.UUID == item.DialogID {
 
 			if dialogGraph[item.DialogID].ChildNodes == nil {
 				dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
 			}
 
-			c := dialogGraph[uint64(item.ChildDialogID.Int64)]
+			c := dialogGraph[item.ChildDialogID.UUID]
 			// If the current item is a parent dialog item,
 			// and the child has dialog has already been processed
 			// then we create an edge from the dialog to its child
 			if c != nil {
-				if ok := edgeTo[item.DialogID][uint64(item.ChildDialogID.Int64)]; !ok {
+				if ok := edgeTo[item.DialogID][item.ChildDialogID.UUID]; !ok {
 					appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
 					dialogGraph[item.DialogID].ChildNodes = &appendedChildren
 					appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
 					c.ParentNodes = &appendedParents
-					edgeTo[item.DialogID][uint64(item.ChildDialogID.Int64)] = true
+					edgeTo[item.DialogID][item.ChildDialogID.UUID] = true
 				}
 			}
 		} else if item.ParentDialogID.Valid && item.ChildDialogID.Valid {
@@ -83,17 +86,17 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 				dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
 			}
 
-			p := dialogGraph[uint64(item.ParentDialogID.Int64)]
+			p := dialogGraph[item.ParentDialogID.UUID]
 			if p != nil {
-				if _, ok := edgeTo[uint64(item.ParentDialogID.Int64)]; !ok {
-					edgeTo[uint64(item.ParentDialogID.Int64)] = map[uint64]bool{}
+				if _, ok := edgeTo[item.ParentDialogID.UUID]; !ok {
+					edgeTo[item.ParentDialogID.UUID] = map[uuid.UUID]bool{}
 				}
-				if ok := edgeTo[uint64(item.ParentDialogID.Int64)][item.DialogID]; !ok {
+				if ok := edgeTo[item.ParentDialogID.UUID][item.DialogID]; !ok {
 					appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
 					dialogGraph[item.DialogID].ParentNodes = &appendedChildren
 					appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
 					p.ChildNodes = &appendedParents
-					edgeTo[uint64(item.ParentDialogID.Int64)][item.DialogID] = true
+					edgeTo[item.ParentDialogID.UUID][item.DialogID] = true
 				}
 			}
 		}
@@ -109,7 +112,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		node := *dialogGraph[rootID]
 		go func(node models.AumDialogNode) {
 			defer wg.Done()
-			helpers.DialogNode(node, redisWriter, common.SyncMapUint64{})
+			helpers.DialogNode(node, redisWriter, common.SyncMapUUID{})
 		}(node)
 	}
 

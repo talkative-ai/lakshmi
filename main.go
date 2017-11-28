@@ -5,9 +5,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
+
+	"github.com/artificial-universe-maker/go.uuid"
 
 	"github.com/go-redis/redis"
 
@@ -32,7 +33,7 @@ func main() {
 func processRequest(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
-	projectID, err := strconv.ParseUint(r.Form.Get("project-id"), 10, 64)
+	projectID, err := uuid.FromString(r.Form.Get("project-id"))
 
 	if err != nil {
 		myerrors.Respond(w, &myerrors.MySimpleError{
@@ -58,7 +59,7 @@ func processRequest(w http.ResponseWriter, r *http.Request) {
 	err = initiateCompiler(projectID, redis)
 	if err != nil {
 		common.RedisSET(
-			fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "status"),
+			fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
 			[]byte(fmt.Sprintf("%v", models.PublishStatusProblem))).Exec(redis)
 		myerrors.Respond(w, &myerrors.MySimpleError{
 			Code: http.StatusInternalServerError,
@@ -75,7 +76,7 @@ type SyncGroup struct {
 	wgSema uint8
 }
 
-func initiateCompiler(projectID uint64, redis *redis.Client) error {
+func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 
 	err := db.InitializeDB()
 	defer db.Instance.Close()
@@ -89,7 +90,7 @@ func initiateCompiler(projectID uint64, redis *redis.Client) error {
 	}
 
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "status"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
 		[]byte(fmt.Sprintf("%v", models.PublishStatusPublishing)))
 
 	var items []models.ProjectItem
@@ -129,7 +130,7 @@ func initiateCompiler(projectID uint64, redis *redis.Client) error {
 	}
 
 	// Delete old published data
-	membersSlice := redis.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"))
+	membersSlice := redis.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"))
 	redis.Del(membersSlice.Val()...)
 
 	redisWriter := make(chan common.RedisCommand, 10)
@@ -154,7 +155,7 @@ func initiateCompiler(projectID uint64, redis *redis.Client) error {
 
 			// Track all saved keys so that later we can remove them all in a republish
 			if trackRedisKeys {
-				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "keys"), []byte(command.Key)).Exec(redis)
+				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"), []byte(command.Key)).Exec(redis)
 			}
 			swg.wg.Done()
 			swg.wgMu.Unlock()
@@ -165,7 +166,7 @@ func initiateCompiler(projectID uint64, redis *redis.Client) error {
 	}()
 
 	type compileDialogResult struct {
-		Graph map[uint64]*models.AumDialogNode
+		Graph map[uuid.UUID]*models.AumDialogNode
 		Error error
 	}
 
@@ -266,11 +267,13 @@ func initiateCompiler(projectID uint64, redis *redis.Client) error {
 	swg.wg.Wait()
 
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "status"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
 		[]byte(fmt.Sprintf("%v", models.PublishStatusPublished))).Exec(redis)
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID), "pubtime"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "pubtime"),
 		[]byte(fmt.Sprintf("%v", time.Now().UnixNano()))).Exec(redis)
+
+	// db.Instance.QueryRow(`INSERT INTO workbench_projects ("Title", "TeamID") VALUES ($1, $2) RETURNING "ID"`, project.Title, team.TeamID).Scan(&newID)
 
 	return nil
 }
