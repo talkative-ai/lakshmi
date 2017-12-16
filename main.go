@@ -139,6 +139,9 @@ func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 	swg := SyncGroup{}
 
 	trackRedisKeys := true
+	ignoreTrack := map[string]bool{
+		models.KeynavGlobalMetaProjects(): true,
+	}
 
 	go func() {
 		swg.wgMu.Lock()
@@ -154,7 +157,7 @@ func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 			command.Exec(redis)
 
 			// Track all saved keys so that later we can remove them all in a republish
-			if trackRedisKeys {
+			if trackRedisKeys && !ignoreTrack[command.Key] {
 				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"), []byte(command.Key)).Exec(redis)
 			}
 			swg.wg.Done()
