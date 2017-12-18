@@ -110,6 +110,7 @@ func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 			d."AlwaysExec",
 			d."Statements",
 			d."IsRoot",
+			d."UnknownHandler",
 			
 			dr."ParentNodeID" "ParentDialogID",
 			dr."ChildNodeID" "ChildDialogID"

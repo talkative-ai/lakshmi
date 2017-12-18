@@ -24,19 +24,20 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 
 	for _, item := range *items {
 
+		// TODO: Generalize this using reflection and tags somehow
 		// Many ProjectItems have repeating DialogIDs
 		// This is because they're SQL rows from a join query
 		if _, ok := dialogGraph[item.DialogID]; !ok {
-			isRoot := item.IsRoot
 			dialogGraph[item.DialogID] = &models.AumDialogNode{
 				AumModel: models.AumModel{
 					ID: item.DialogID,
 				},
-				ActorID:    item.ActorID,
-				ProjectID:  item.ProjectID,
-				EntryInput: []models.AumDialogInput{},
-				RawLBlock:  item.RawLBlock,
-				IsRoot:     &isRoot,
+				ActorID:        item.ActorID,
+				ProjectID:      item.ProjectID,
+				EntryInput:     []models.AumDialogInput{},
+				RawLBlock:      item.RawLBlock,
+				IsRoot:         item.IsRoot,
+				UnknownHandler: item.UnknownHandler,
 			}
 
 			edgeTo[item.DialogID] = map[uuid.UUID]bool{}

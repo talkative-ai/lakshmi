@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -132,19 +131,33 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 		// Send it to be written to Redis
 		redisWriter <- common.RedisSET(compiledKey, bslice)
 
-		// Creating a Redis hash which maps every user input to the node's key
-		// This enables Brahman to match a user input to the node data while remaining normalized
-		for _, input := range node.EntryInput {
-			inp := strings.ToUpper(string(input))
-
-			if node.IsRoot != nil && *node.IsRoot {
+		// If this dialog node is a "catch all" for every unhandled input
+		if node.UnknownHandler {
+			if node.IsRoot {
 				key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID.String(), node.ActorID.String())
-				redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
+				redisWriter <- common.RedisHSET(key, models.AumDialogSpecialInputUnknown, []byte(compiledKey))
 			}
 			if node.ParentNodes != nil {
 				for _, parent := range *node.ParentNodes {
 					key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID.String(), node.ActorID.String(), parent.ID.String())
+					redisWriter <- common.RedisHSET(key, models.AumDialogSpecialInputUnknown, []byte(compiledKey))
+				}
+			}
+		} else {
+			// Creating a Redis hash which maps every user input to the node's key
+			// This enables Brahman to match a user input to the node data while remaining normalized
+			for _, input := range node.EntryInput {
+				inp := input.Prepared()
+
+				if node.IsRoot {
+					key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID.String(), node.ActorID.String())
 					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
+				}
+				if node.ParentNodes != nil {
+					for _, parent := range *node.ParentNodes {
+						key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID.String(), node.ActorID.String(), parent.ID.String())
+						redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
+					}
 				}
 			}
 		}
