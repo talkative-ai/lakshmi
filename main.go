@@ -277,7 +277,20 @@ func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "pubtime"),
 		[]byte(fmt.Sprintf("%v", time.Now().UnixNano()))).Exec(redis)
 
-	// db.Instance.QueryRow(`INSERT INTO workbench_projects ("Title", "TeamID") VALUES ($1, $2) RETURNING "ID"`, project.Title, team.TeamID).Scan(&newID)
+	team := models.Team{}
+	err = db.DBMap.SelectOne(&team, `
+		SELECT DISTINCT
+			p."TeamID" "ID"
+		FROM workbench_projects p
+		WHERE p."ID"=$1
+		`, projectID)
+	if err != nil {
+		return err
+	}
 
+	_, err = db.Instance.Exec(`INSERT INTO published_workbench_projects ("ProjectID", "TeamID") VALUES ($1, $2)`, projectID, team.ID)
+	if err != nil {
+		return err
+	}
 	return nil
 }
