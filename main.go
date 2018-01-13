@@ -79,10 +79,10 @@ type SyncGroup struct {
 func initiateCompiler(projectID uuid.UUID, redis *redis.Client) error {
 
 	err := db.InitializeDB()
-	defer db.Instance.Close()
 	if err != nil {
 		return err
 	}
+	defer db.Instance.Close()
 
 	if os.Getenv("REDIS_ADDR") == "" {
 		os.Setenv("REDIS_ADDR", "127.0.0.1:6379")
