@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/artificial-universe-maker/go.uuid"
 
@@ -19,9 +18,26 @@ import (
 )
 
 func main() {
+
+	// Initialize database and redis connections
+	// TODO: Make it a bit clearer that this is happening, and more maintainable
+	err := db.InitializeDB()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer db.Instance.Close()
+
+	_, err = redis.ConnectRedis()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer redis.Instance.Close()
+
 	http.HandleFunc("/", processRequest)
 	log.Println("Lakshmi starting server on localhost:8080")
-	err := http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -254,10 +270,20 @@ func initiateCompiler(projectID uuid.UUID) error {
 
 	common.RedisSET(
 		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
-		[]byte(fmt.Sprintf("%v", models.PublishStatusPublished))).Exec(redis.Instance)
-	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "pubtime"),
-		[]byte(fmt.Sprintf("%v", time.Now().UnixNano()))).Exec(redis.Instance)
+		[]byte(fmt.Sprintf("%v", models.PublishStatusUnderReview))).Exec(redis.Instance)
+
+	_, err = db.Instance.Exec(`DELETE FROM workbench_projects_needing_review WHERE "ProjectID"=$1`, projectID)
+	if err != nil {
+		return err
+	}
+	_, err = db.Instance.Exec(`INSERT INTO workbench_projects_needing_review ("ProjectID") VALUES ($1)`, projectID)
+	if err != nil {
+		return err
+	}
+
+	// common.RedisSET(
+	// 	fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "pubtime"),
+	// 	[]byte(fmt.Sprintf("%v", time.Now().UnixNano()))).Exec(redis.Instance)
 
 	team := models.Team{}
 	err = db.DBMap.SelectOne(&team, `
@@ -270,9 +296,10 @@ func initiateCompiler(projectID uuid.UUID) error {
 		return err
 	}
 
-	_, err = db.Instance.Exec(`INSERT INTO published_workbench_projects ("ProjectID", "TeamID") VALUES ($1, $2)`, projectID, team.ID)
-	if err != nil {
-		return err
-	}
+	// _, err = db.Instance.Exec(`INSERT INTO published_workbench_projects ("ProjectID", "TeamID") VALUES ($1, $2)`, projectID, team.ID)
+	// if err != nil {
+	// 	return err
+	// }
+
 	return nil
 }
