@@ -49,8 +49,8 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			// As compatible with api.ai
 			// TODO: This is a harder engineering problem.
 			// Supporting a list of raw text inputs for now but upgrade later
-			dialogGraph[item.DialogID].EntryInput = make([]models.AumDialogInput, len(item.DialogEntry.Val))
-			for idx, val := range item.DialogEntry.Val {
+			dialogGraph[item.DialogID].EntryInput = make([]models.AumDialogInput, len(item.DialogEntry))
+			for idx, val := range item.DialogEntry {
 				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
 			}
 			dialogEntrySet[item.DialogID] = map[uuid.UUID]bool{}
