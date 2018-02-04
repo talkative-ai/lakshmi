@@ -98,6 +98,11 @@ func initiateCompiler(projectID uuid.UUID, version int64) error {
 		projectItems[idx].ProjectID = projectID
 	}
 
+	triggerItems := project.TriggerData
+	for idx := range triggerItems {
+		triggerItems[idx].ProjectID = projectID
+	}
+
 	// Delete old published data
 	membersSlice := redis.Instance.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"))
 	redis.Instance.Del(membersSlice.Val()...)
@@ -176,26 +181,7 @@ func initiateCompiler(projectID uuid.UUID, version int64) error {
 	compileTriggerChannel := make(chan error)
 	go func() {
 		fmt.Println("Compiling triggers into zones")
-		var triggerItems []models.ProjectTriggerItem
-		_, err = db.DBMap.Select(&triggerItems, `
-			SELECT DISTINCT
-				p."ID" "ProjectID",
-				z."ID" "ZoneID",
-				t."TriggerType",
-				t."AlwaysExec",
-				t."Statements"
-
-			FROM workbench_projects p
-			JOIN workbench_zones z
-				ON z."ProjectID" = p."ID"
-			JOIN workbench_triggers t
-				ON t."ZoneID"=z."ID"
-			WHERE p."ID"=$1
-			`, projectID)
-		if err != nil {
-			compileTriggerChannel <- err
-			return
-		}
+		triggerItems := []models.ProjectTriggerItem(project.TriggerData)
 		err := compile.Trigger(redisWriter, &triggerItems)
 		compileTriggerChannel <- err
 	}()

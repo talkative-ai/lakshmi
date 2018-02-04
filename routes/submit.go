@@ -48,9 +48,15 @@ func postSubmitHandler(w http.ResponseWriter, r *http.Request) {
 
 	submitQuery := `
 		INSERT INTO static_published_projects_versioned
-			("ProjectID", "Version", "Title", "Category", "Tags", "ProjectData")
+			("ProjectID", "Version", "Title", "Category", "Tags", "ProjectData", "TriggerData")
 		SELECT
-			$1 "ProjectID", $2 "Version", p."Title", p."Category", p."Tags", json_agg(t) "ProjectData"
+			$1 "ProjectID",
+			$2 "Version",
+			p."Title",
+			p."Category",
+			p."Tags",
+			json_agg(DISTINCT data) "ProjectData",
+			json_agg(DISTINCT triggers) "TriggerData"
 		FROM
 		(SELECT DISTINCT
 			za."ActorID",
@@ -75,13 +81,25 @@ func postSubmitHandler(w http.ResponseWriter, r *http.Request) {
 				ON d."ActorID"=za."ActorID"
 			FULL OUTER JOIN workbench_dialog_nodes_relations dr
 				ON dr."ParentNodeID"=d."ID" OR dr."ChildNodeID"=d."ID"
-			WHERE p."ID"=$1) t,
-		(SELECT
-			"Title",
-			"Category",
-			"Tags"
-			FROM workbench_projects
-			WHERE "ID"=$1 LIMIT 1) p
+			WHERE p."ID"=$1) data,
+		(
+			SELECT DISTINCT
+				zone."ID" "ZoneID",
+				trig."TriggerType",
+				trig."AlwaysExec",
+				trig."Statements"
+
+			FROM workbench_zones zone
+			JOIN workbench_triggers trig
+				ON trig."ZoneID"=zone."ID"
+			WHERE zone."ProjectID"=$1) triggers,
+		(
+			SELECT
+				"Title",
+				"Category",
+				"Tags"
+				FROM workbench_projects
+				WHERE "ID"=$1 LIMIT 1) p
 		GROUP BY (p."Title", p."Category", p."Tags")
 	`
 
