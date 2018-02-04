@@ -101,6 +101,11 @@ func postSubmitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		db.Instance.Exec(`DELETE FROM static_published_projects_versioned WHERE "Version"=$1 AND "ProjectID"=$2`, currentVersion, projectID.String())
 		db.Instance.Exec(submitQuery, projectID.String(), currentVersion)
+		_, err = db.Instance.Exec(`INSERT INTO workbench_projects_needing_review ("ProjectID") VALUES ($1)`, projectID)
+		if err != nil {
+			myerrors.ServerError(w, r, err)
+			return
+		}
 		return
 	} else if currentPublishStatus == models.PublishStatusProblem {
 		// TODO: Handle this better
