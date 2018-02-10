@@ -3,8 +3,8 @@ package helpers
 import (
 	"encoding/binary"
 
-	"github.com/artificial-universe-maker/core/common"
-	"github.com/artificial-universe-maker/core/models"
+	"github.com/talkative-ai/core/common"
+	"github.com/talkative-ai/core/models"
 )
 
 /**

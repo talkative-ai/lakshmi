@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/artificial-universe-maker/core/db"
-	"github.com/artificial-universe-maker/core/redis"
-	"github.com/artificial-universe-maker/core/router"
-	"github.com/artificial-universe-maker/lakshmi/routes"
 	"github.com/gorilla/mux"
+	"github.com/talkative-ai/core/db"
+	"github.com/talkative-ai/core/redis"
+	"github.com/talkative-ai/core/router"
+	"github.com/talkative-ai/lakshmi/routes"
 )
 
 func main() {

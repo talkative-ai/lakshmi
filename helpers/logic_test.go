@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/artificial-universe-maker/core/models"
+	"github.com/talkative-ai/core/models"
 )
 
 func TestCompileLogic(t *testing.T) {

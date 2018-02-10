@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/artificial-universe-maker/core/common"
-	"github.com/artificial-universe-maker/core/models"
-	uuid "github.com/artificial-universe-maker/go.uuid"
-	"github.com/artificial-universe-maker/lakshmi/helpers"
+	"github.com/talkative-ai/core/common"
+	"github.com/talkative-ai/core/models"
+	uuid "github.com/talkative-ai/go.uuid"
+	"github.com/talkative-ai/lakshmi/helpers"
 )
 
 // Dialog compiles the dialogs into byte slices.

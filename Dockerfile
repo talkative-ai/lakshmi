@@ -4,7 +4,7 @@ RUN apk add --update git
 
 COPY docker.gitconfig /root/.gitconfig
 
-RUN go get github.com/artificial-universe-maker/lakshmi
+RUN go get github.com/talkative-ai/lakshmi
 
 ENTRYPOINT /go/bin/lakshmi
 

@@ -1,9 +1,9 @@
 package compile
 
 import (
-	"github.com/artificial-universe-maker/core/common"
-	"github.com/artificial-universe-maker/core/models"
-	uuid "github.com/artificial-universe-maker/go.uuid"
+	"github.com/talkative-ai/core/common"
+	"github.com/talkative-ai/core/models"
+	uuid "github.com/talkative-ai/go.uuid"
 )
 
 func Actor(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) error {

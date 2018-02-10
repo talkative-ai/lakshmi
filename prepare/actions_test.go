@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/artificial-universe-maker/core/models"
+	"github.com/talkative-ai/core/models"
 )
 
 func TestBundleActions(t *testing.T) {

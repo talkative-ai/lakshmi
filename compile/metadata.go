@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/artificial-universe-maker/core/common"
-	"github.com/artificial-universe-maker/core/models"
+	"github.com/talkative-ai/core/common"
+	"github.com/talkative-ai/core/models"
 )
 
 // Metadata saves all of the static and dynamic project metadata

@@ -3,10 +3,10 @@ package compile
 import (
 	"fmt"
 
-	"github.com/artificial-universe-maker/core/common"
-	"github.com/artificial-universe-maker/core/models"
-	"github.com/artificial-universe-maker/lakshmi/helpers"
-	"github.com/artificial-universe-maker/lakshmi/prepare"
+	"github.com/talkative-ai/core/common"
+	"github.com/talkative-ai/core/models"
+	"github.com/talkative-ai/lakshmi/helpers"
+	"github.com/talkative-ai/lakshmi/prepare"
 )
 
 func Trigger(redisWriter chan common.RedisCommand, items *[]models.ProjectTriggerItem) error {
