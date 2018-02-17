@@ -32,7 +32,7 @@ import (
 //
 // 6. Finally send it all off to be converted to bytes,
 //		and return the value to the calling function "DialogNode"
-func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisCommand) []byte {
+func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisCommand) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
@@ -99,7 +99,7 @@ func compileNodeHelper(node models.AumDialogNode, redisWriter chan common.RedisC
 // DialogNode is a helper function to compile.Dialog
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
-func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUUID) {
+func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUUID) {
 	processed.Mutex.Lock()
 	if processed.Value == nil {
 		processed.Value = map[uuid.UUID]bool{}
@@ -112,7 +112,7 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 	processed.Mutex.Unlock()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func(node models.AumDialogNode) {
+	go func(node models.DialogNode) {
 		defer wg.Done()
 
 		bslice := []byte{}
@@ -135,12 +135,12 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 		if node.UnknownHandler {
 			if node.IsRoot {
 				key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID.String(), node.ActorID.String())
-				redisWriter <- common.RedisHSET(key, models.AumDialogSpecialInputUnknown, []byte(compiledKey))
+				redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
 			}
 			if node.ParentNodes != nil {
 				for _, parent := range *node.ParentNodes {
 					key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID.String(), node.ActorID.String(), parent.ID.String())
-					redisWriter <- common.RedisHSET(key, models.AumDialogSpecialInputUnknown, []byte(compiledKey))
+					redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
 				}
 			}
 		} else {
@@ -172,7 +172,7 @@ func DialogNode(node models.AumDialogNode, redisWriter chan common.RedisCommand,
 	// For every child node, recurse this operation
 	wg.Add(len(*node.ChildNodes))
 	for _, child := range *node.ChildNodes {
-		go func(node models.AumDialogNode) {
+		go func(node models.DialogNode) {
 			defer wg.Done()
 			DialogNode(node, redisWriter, processed)
 		}(*child)

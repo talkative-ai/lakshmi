@@ -7,7 +7,7 @@ import (
 	"github.com/talkative-ai/core/models"
 )
 
-func BundleActions(AAS models.AumActionSet) []byte {
+func BundleActions(AAS models.ActionSet) []byte {
 	bundle := []byte{}
 	cinner := make(chan common.BSliceIndex)
 	actionCount := 0
@@ -17,12 +17,12 @@ func BundleActions(AAS models.AumActionSet) []byte {
 	bslices := make([][]byte, actionCount)
 	i := 0
 	for a := range AAS.Iterable() {
-		go func(idx int, a models.AumRuntimeAction, cinner chan common.BSliceIndex) {
+		go func(idx int, a models.RequestAction, cinner chan common.BSliceIndex) {
 			bytes := []byte{}
 
-			// Store the AAID
+			// Store the RAID
 			b := make([]byte, 8)
-			binary.LittleEndian.PutUint64(b, uint64(a.GetAAID()))
+			binary.LittleEndian.PutUint64(b, uint64(a.GetRAID()))
 			bytes = append(bytes, b...)
 
 			// Store the length of the compiled data

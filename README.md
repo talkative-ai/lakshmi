@@ -114,7 +114,7 @@ The backend will then convert it to a byte stream:
 
 TODO:
 - Handle comparison logic
-- Implement additional ARAs
+- Implement additional RAs
 
 Compiled node
 - Number of nodes

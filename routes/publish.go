@@ -144,7 +144,7 @@ func initiateCompiler(projectID uuid.UUID, version int64) error {
 	}()
 
 	type compileDialogResult struct {
-		Graph map[uuid.UUID]*models.AumDialogNode
+		Graph map[uuid.UUID]*models.DialogNode
 		Error error
 	}
 
@@ -159,7 +159,7 @@ func initiateCompiler(projectID uuid.UUID, version int64) error {
 
 	compileMetadataChannel := make(chan error)
 	go func() {
-		project := models.AumProject{}
+		project := models.Project{}
 		err = db.DBMap.SelectOne(&project, `SELECT * FROM workbench_projects WHERE "ID"=$1`, projectID)
 		if err != nil {
 			compileMetadataChannel <- err

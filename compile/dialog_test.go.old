@@ -13,46 +13,46 @@ import (
 
 func TestDialog(t *testing.T) {
 	block := &models.RawLBlock{}
-	block.AlwaysExec = models.AumActionSet{}
-	block.AlwaysExec.PlaySounds = make([]models.ARAPlaySound, 1)
-	block.AlwaysExec.PlaySounds[0].SoundType = models.ARAPlaySoundTypeText
+	block.AlwaysExec = models.ActionSet{}
+	block.AlwaysExec.PlaySounds = make([]models.RAPlaySound, 1)
+	block.AlwaysExec.PlaySounds[0].SoundType = models.RAPlaySoundTypeText
 	block.AlwaysExec.PlaySounds[0].Val = "Hello world"
 	stmt := make([][]models.RawLStatement, 1)
 	block.Statements = &stmt
 	(*block.Statements)[0] = make([]models.RawLStatement, 1)
-	(*block.Statements)[0][0].Exec = models.AumActionSet{}
-	(*block.Statements)[0][0].Exec.PlaySounds = make([]models.ARAPlaySound, 2)
-	(*block.Statements)[0][0].Exec.PlaySounds[0].SoundType = models.ARAPlaySoundTypeText
-	(*block.Statements)[0][0].Exec.PlaySounds[0].Val = "This is AUM!"
-	(*block.Statements)[0][0].Exec.PlaySounds[1].SoundType = models.ARAPlaySoundTypeAudio
+	(*block.Statements)[0][0].Exec = models.ActionSet{}
+	(*block.Statements)[0][0].Exec.PlaySounds = make([]models.RAPlaySound, 2)
+	(*block.Statements)[0][0].Exec.PlaySounds[0].SoundType = models.RAPlaySoundTypeText
+	(*block.Statements)[0][0].Exec.PlaySounds[0].Val = "This is Talkative!"
+	(*block.Statements)[0][0].Exec.PlaySounds[1].SoundType = models.RAPlaySoundTypeAudio
 	(*block.Statements)[0][0].Exec.PlaySounds[1].Val, _ = url.Parse("https://upload.wikimedia.org/wikipedia/commons/b/bb/Test_ogg_mp3_48kbps.wav")
 
-	dialog := models.AumDialogNode{}
+	dialog := models.DialogNode{}
 	dialog.ID = uint64(9001)
 	dialog.ProjectID = 1
 	dialog.ZoneID = 1
 	dialog.LogicalSet = *block
-	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputGreeting)
-	dialog.EntryInput = append(dialog.EntryInput, models.AumDialogInputQuestionVerb)
+	dialog.EntryInput = append(dialog.EntryInput, models.DialogInputGreeting)
+	dialog.EntryInput = append(dialog.EntryInput, models.DialogInputQuestionVerb)
 
 	block2 := &models.RawLBlock{}
-	block2.AlwaysExec = models.AumActionSet{}
-	block2.AlwaysExec.PlaySounds = make([]models.ARAPlaySound, 1)
-	block2.AlwaysExec.PlaySounds[0].SoundType = models.ARAPlaySoundTypeText
+	block2.AlwaysExec = models.ActionSet{}
+	block2.AlwaysExec.PlaySounds = make([]models.RAPlaySound, 1)
+	block2.AlwaysExec.PlaySounds[0].SoundType = models.RAPlaySoundTypeText
 	block2.AlwaysExec.PlaySounds[0].Val = "I'm a nested dialog node. Goodbye"
 
-	dialog2 := models.AumDialogNode{}
+	dialog2 := models.DialogNode{}
 	dialog2.ID = uint64(9002)
 	dialog2.ProjectID = 1
 	dialog2.ZoneID = 1
 	dialog2.LogicalSet = *block2
-	dialog2.EntryInput = append(dialog2.EntryInput, models.AumDialogInputFarewell)
+	dialog2.EntryInput = append(dialog2.EntryInput, models.DialogInputFarewell)
 
-	parents := make([]*models.AumDialogNode, 1)
+	parents := make([]*models.DialogNode, 1)
 	parents[0] = &dialog
 	dialog2.ParentNodes = &parents
 
-	children := make([]*models.AumDialogNode, 1)
+	children := make([]*models.DialogNode, 1)
 	children[0] = &dialog2
 	dialog.ChildNodes = &children
 

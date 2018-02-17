@@ -15,9 +15,9 @@ import (
 // Then for each dialog graph root item, it compiles it via the helper DialogNode
 // which will finish the compilation process.
 // This includes action bundles, logical blocks, and child nodes recursively.
-func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uuid.UUID]*models.AumDialogNode, error) {
+func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uuid.UUID]*models.DialogNode, error) {
 
-	dialogGraph := map[uuid.UUID]*models.AumDialogNode{}
+	dialogGraph := map[uuid.UUID]*models.DialogNode{}
 	dialogGraphRoots := map[uuid.UUID]bool{}
 	dialogEntrySet := map[uuid.UUID]map[uuid.UUID]bool{}
 	edgeTo := map[uuid.UUID]map[uuid.UUID]bool{}
@@ -28,13 +28,13 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		// Many ProjectItems have repeating DialogIDs
 		// This is because they're SQL rows from a join query
 		if _, ok := dialogGraph[item.DialogID]; !ok {
-			dialogGraph[item.DialogID] = &models.AumDialogNode{
-				AumModel: models.AumModel{
+			dialogGraph[item.DialogID] = &models.DialogNode{
+				Model: models.Model{
 					ID: item.DialogID,
 				},
 				ActorID:        item.ActorID,
 				ProjectID:      item.ProjectID,
-				EntryInput:     []models.AumDialogInput{},
+				EntryInput:     []models.DialogInput{},
 				RawLBlock:      item.RawLBlock,
 				IsRoot:         item.IsRoot,
 				UnknownHandler: item.UnknownHandler,
@@ -42,16 +42,16 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 
 			edgeTo[item.DialogID] = map[uuid.UUID]bool{}
 
-			// Here we can convert a string value into an AumDialogInput value
+			// Here we can convert a string value into an DialogInput value
 			// as the dialog entry point.
 			// This is good for machine learned patterns, such as {greetings} which could match
 			// Hello, Hola, Yo, etc.
 			// As compatible with api.ai
 			// TODO: This is a harder engineering problem.
 			// Supporting a list of raw text inputs for now but upgrade later
-			dialogGraph[item.DialogID].EntryInput = make([]models.AumDialogInput, len(item.DialogEntry))
+			dialogGraph[item.DialogID].EntryInput = make([]models.DialogInput, len(item.DialogEntry))
 			for idx, val := range item.DialogEntry {
-				dialogGraph[item.DialogID].EntryInput[idx] = models.AumDialogInput(val)
+				dialogGraph[item.DialogID].EntryInput[idx] = models.DialogInput(val)
 			}
 			dialogEntrySet[item.DialogID] = map[uuid.UUID]bool{}
 			json.Unmarshal([]byte(item.LogicalSetAlways), &dialogGraph[item.DialogID].AlwaysExec)
@@ -64,7 +64,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		if item.ParentDialogID.Valid && item.ParentDialogID.UUID == item.DialogID {
 
 			if dialogGraph[item.DialogID].ChildNodes == nil {
-				dialogGraph[item.DialogID].ChildNodes = &[]*models.AumDialogNode{}
+				dialogGraph[item.DialogID].ChildNodes = &[]*models.DialogNode{}
 			}
 
 			c := dialogGraph[item.ChildDialogID.UUID]
@@ -84,7 +84,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 
 			// Same as above, except for a child node
 			if dialogGraph[item.DialogID].ParentNodes == nil {
-				dialogGraph[item.DialogID].ParentNodes = &[]*models.AumDialogNode{}
+				dialogGraph[item.DialogID].ParentNodes = &[]*models.DialogNode{}
 			}
 
 			p := dialogGraph[item.ParentDialogID.UUID]
@@ -111,7 +111,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 	for rootID := range dialogGraphRoots {
 		wg.Add(1)
 		node := *dialogGraph[rootID]
-		go func(node models.AumDialogNode) {
+		go func(node models.DialogNode) {
 			defer wg.Done()
 			helpers.DialogNode(node, redisWriter, common.SyncMapUUID{})
 		}(node)
