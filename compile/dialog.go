@@ -68,20 +68,21 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			}
 
 			c := dialogGraph[item.ChildDialogID.UUID]
-			if c.ParentNodes == nil {
-				c.ParentNodes = &[]*models.DialogNode{}
+			if c == nil {
+				continue
 			}
 			// If the current item is a parent dialog item,
 			// and the child has dialog has already been processed
 			// then we create an edge from the dialog to its child
-			if c != nil {
-				if ok := edgeTo[item.DialogID][item.ChildDialogID.UUID]; !ok {
-					appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
-					dialogGraph[item.DialogID].ChildNodes = &appendedChildren
-					appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
-					c.ParentNodes = &appendedParents
-					edgeTo[item.DialogID][item.ChildDialogID.UUID] = true
-				}
+			if c.ParentNodes == nil {
+				c.ParentNodes = &[]*models.DialogNode{}
+			}
+			if ok := edgeTo[item.DialogID][item.ChildDialogID.UUID]; !ok {
+				appendedChildren := append(*dialogGraph[item.DialogID].ChildNodes, c)
+				dialogGraph[item.DialogID].ChildNodes = &appendedChildren
+				appendedParents := append(*c.ParentNodes, dialogGraph[item.DialogID])
+				c.ParentNodes = &appendedParents
+				edgeTo[item.DialogID][item.ChildDialogID.UUID] = true
 			}
 		} else if item.ParentDialogID.Valid && item.ChildDialogID.Valid {
 
@@ -91,21 +92,22 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			}
 
 			p := dialogGraph[item.ParentDialogID.UUID]
-			// Same as above, except for a child node
+			if p == nil {
+				continue
+			}
+
 			if p.ParentNodes == nil {
 				p.ParentNodes = &[]*models.DialogNode{}
 			}
-			if p != nil {
-				if _, ok := edgeTo[item.ParentDialogID.UUID]; !ok {
-					edgeTo[item.ParentDialogID.UUID] = map[uuid.UUID]bool{}
-				}
-				if ok := edgeTo[item.ParentDialogID.UUID][item.DialogID]; !ok {
-					appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
-					dialogGraph[item.DialogID].ParentNodes = &appendedChildren
-					appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
-					p.ChildNodes = &appendedParents
-					edgeTo[item.ParentDialogID.UUID][item.DialogID] = true
-				}
+			if _, ok := edgeTo[item.ParentDialogID.UUID]; !ok {
+				edgeTo[item.ParentDialogID.UUID] = map[uuid.UUID]bool{}
+			}
+			if ok := edgeTo[item.ParentDialogID.UUID][item.DialogID]; !ok {
+				appendedChildren := append(*dialogGraph[item.DialogID].ParentNodes, p)
+				dialogGraph[item.DialogID].ParentNodes = &appendedChildren
+				appendedParents := append(*p.ChildNodes, dialogGraph[item.DialogID])
+				p.ChildNodes = &appendedParents
+				edgeTo[item.ParentDialogID.UUID][item.DialogID] = true
 			}
 		}
 	}
