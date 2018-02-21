@@ -68,6 +68,9 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			}
 
 			c := dialogGraph[item.ChildDialogID.UUID]
+			if c.ParentNodes == nil {
+				c.ParentNodes = &[]*models.DialogNode{}
+			}
 			// If the current item is a parent dialog item,
 			// and the child has dialog has already been processed
 			// then we create an edge from the dialog to its child
@@ -88,6 +91,10 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 			}
 
 			p := dialogGraph[item.ParentDialogID.UUID]
+			// Same as above, except for a child node
+			if p.ParentNodes == nil {
+				p.ParentNodes = &[]*models.DialogNode{}
+			}
 			if p != nil {
 				if _, ok := edgeTo[item.ParentDialogID.UUID]; !ok {
 					edgeTo[item.ParentDialogID.UUID] = map[uuid.UUID]bool{}
