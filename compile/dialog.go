@@ -96,8 +96,8 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 				continue
 			}
 
-			if p.ParentNodes == nil {
-				p.ParentNodes = &[]*models.DialogNode{}
+			if p.ChildNodes == nil {
+				p.ChildNodes = &[]*models.DialogNode{}
 			}
 			if _, ok := edgeTo[item.ParentDialogID.UUID]; !ok {
 				edgeTo[item.ParentDialogID.UUID] = map[uuid.UUID]bool{}
