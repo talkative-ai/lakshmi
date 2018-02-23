@@ -17,6 +17,7 @@ import (
 	"github.com/talkative-ai/core/router"
 	uuid "github.com/talkative-ai/go.uuid"
 	"github.com/talkative-ai/lakshmi/compile"
+	"github.com/talkative-ai/lakshmi/helpers"
 )
 
 // PostPublish router.Route
@@ -56,7 +57,19 @@ func PostPublishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = initiateCompiler(projectID, version)
+	demo := r.URL.Query().Get("demo")
+	var isDemo bool
+	if demo == "" {
+		isDemo = true
+	}
+
+	if isDemo {
+		models.KeynavDemoMode = true
+		version = -1
+		helpers.CreateVersionedProject(nil, projectID.String(), -1)
+	}
+
+	err = initiateCompiler(projectID, version, isDemo)
 	if err != nil {
 		common.RedisSET(
 			fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
@@ -76,7 +89,7 @@ type SyncGroup struct {
 	wgSema uint8
 }
 
-func initiateCompiler(projectID uuid.UUID, version int64) error {
+func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 
 	common.RedisSET(
 		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
@@ -84,11 +97,11 @@ func initiateCompiler(projectID uuid.UUID, version int64) error {
 
 	var project models.VersionedProject
 	err := db.DBMap.SelectOne(&project, `
-		SELECT *
-		FROM static_published_projects_versioned
-		WHERE "ProjectID"=$1
-		AND "Version"=$2
-	`, projectID, version)
+			SELECT *
+			FROM static_published_projects_versioned
+			WHERE "ProjectID"=$1
+			AND "Version"=$2
+		`, projectID, version)
 	if err != nil {
 		return err
 	}
