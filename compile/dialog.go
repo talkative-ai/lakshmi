@@ -15,7 +15,7 @@ import (
 // Then for each dialog graph root item, it compiles it via the helper DialogNode
 // which will finish the compilation process.
 // This includes action bundles, logical blocks, and child nodes recursively.
-func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (map[uuid.UUID]*models.DialogNode, error) {
+func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem, publishID string) (map[uuid.UUID]*models.DialogNode, error) {
 
 	dialogGraph := map[uuid.UUID]*models.DialogNode{}
 	dialogGraphRoots := map[uuid.UUID]bool{}
@@ -122,7 +122,7 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem) (
 		node := *dialogGraph[rootID]
 		go func(node models.DialogNode) {
 			defer wg.Done()
-			helpers.DialogNode(node, redisWriter, common.SyncMapUUID{})
+			helpers.DialogNode(node, redisWriter, common.SyncMapUUID{}, publishID)
 		}(node)
 	}
 

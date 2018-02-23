@@ -9,7 +9,7 @@ import (
 	"github.com/talkative-ai/lakshmi/prepare"
 )
 
-func Trigger(redisWriter chan common.RedisCommand, items *[]models.ProjectTriggerItem) error {
+func Trigger(redisWriter chan common.RedisCommand, items *[]models.ProjectTriggerItem, projectID string) error {
 
 	bundle := uint64(0)
 
@@ -17,13 +17,13 @@ func Trigger(redisWriter chan common.RedisCommand, items *[]models.ProjectTrigge
 		bundle++
 		lblock := models.LBlock{}
 
-		key := models.KeynavCompiledTriggerActionBundle(item.ProjectID.String(), item.ZoneID.String(), uint64(item.TriggerType), bundle)
+		key := models.KeynavCompiledTriggerActionBundle(projectID, item.ZoneID.String(), uint64(item.TriggerType), bundle)
 		bslice := prepare.BundleActions(item.RawLBlock.AlwaysExec)
 		lblock.AlwaysExec = key
 		redisWriter <- common.RedisSET(key, bslice)
 
 		compiled := helpers.CompileLogic(&lblock)
-		key = models.KeynavCompiledTriggersWithinZone(item.ProjectID.String(), item.ZoneID.String())
+		key = models.KeynavCompiledTriggersWithinZone(projectID, item.ZoneID.String())
 		redisWriter <- common.RedisHSET(key, fmt.Sprintf("%v", item.TriggerType), compiled)
 	}
 

@@ -1,8 +1,12 @@
 package helpers
 
-import "database/sql"
+import (
+	"database/sql"
 
-func CreateVersionedProject(tx *sql.Tx, projectID string, currentVersion int64) {
+	"github.com/talkative-ai/core/db"
+)
+
+func CreateVersionedProject(tx *sql.Tx, projectID string, currentVersion int64) error {
 	submitQuery := `
 		INSERT INTO static_published_projects_versioned
 			("ProjectID", "Version", "Title", "Category", "Tags", "ProjectData", "TriggerData")
@@ -66,7 +70,22 @@ func CreateVersionedProject(tx *sql.Tx, projectID string, currentVersion int64) 
 		GROUP BY (p."Title", p."Category", p."Tags")
 	`
 
-	if tx != nil {
-		tx.Exec(submitQuery, projectID, currentVersion)
+	txWasNil := false
+
+	if tx == nil {
+		var err error
+		txWasNil = true
+		tx, err = db.Instance.Begin()
+		if err != nil {
+			return err
+		}
 	}
+
+	tx.Exec(submitQuery, projectID, currentVersion)
+
+	if txWasNil == true {
+		return tx.Commit()
+	}
+
+	return nil
 }

@@ -26,7 +26,7 @@ import (
 // Accepts models.TokenValidate
 // Responds with status of success or failure
 var PostPublish = &router.Route{
-	Path:       "/v1/publish/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/{version:[0-9]+}",
+	Path:       "/v1/publish/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/{version:[0-9]*}",
 	Method:     "POST",
 	Handler:    http.HandlerFunc(PostPublishHandler),
 	Prehandler: []prehandle.Prehandler{prehandle.SetJSON},
@@ -46,33 +46,41 @@ func PostPublishHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	version, err := strconv.ParseInt(urlparams["version"], 10, 64)
-	if err != nil {
-		myerrors.Respond(w, &myerrors.MySimpleError{
-			Code:    http.StatusBadRequest,
-			Log:     err.Error(),
-			Req:     r,
-			Message: "Invalid version number",
-		})
-		return
-	}
+
+	var version int64
+	publishID := projectID.String()
 
 	demo := r.URL.Query().Get("demo")
 	var isDemo bool
-	if demo == "" {
+	if demo != "" {
 		isDemo = true
 	}
 
 	if isDemo {
-		models.KeynavDemoMode = true
 		version = -1
+		if isDemo {
+			publishID = fmt.Sprintf("demo:%+v", publishID)
+		}
 		helpers.CreateVersionedProject(nil, projectID.String(), -1)
+	} else {
+		var err error
+		version, err = strconv.ParseInt(urlparams["version"], 10, 64)
+		if err != nil {
+			myerrors.Respond(w, &myerrors.MySimpleError{
+				Code:    http.StatusBadRequest,
+				Log:     err.Error(),
+				Req:     r,
+				Message: "Invalid version number",
+			})
+			return
+		}
+
 	}
 
-	err = initiateCompiler(projectID, version, isDemo)
+	err = initiateCompiler(projectID, publishID, version, isDemo)
 	if err != nil {
 		common.RedisSET(
-			fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
+			fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "status"),
 			[]byte(fmt.Sprintf("%v", models.PublishStatusProblem))).Exec(redis.Instance)
 		myerrors.Respond(w, &myerrors.MySimpleError{
 			Code: http.StatusInternalServerError,
@@ -89,10 +97,10 @@ type SyncGroup struct {
 	wgSema uint8
 }
 
-func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
+func initiateCompiler(projectID uuid.UUID, publishID string, version int64, isDemo bool) error {
 
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "status"),
 		[]byte(fmt.Sprintf("%v", models.PublishStatusPublishing)))
 
 	var project models.VersionedProject
@@ -117,7 +125,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 	}
 
 	// Delete old published data
-	membersSlice := redis.Instance.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"))
+	membersSlice := redis.Instance.SMembers(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "keys"))
 	redis.Instance.Del(membersSlice.Val()...)
 
 	redisWriter := make(chan common.RedisCommand, 10)
@@ -127,8 +135,8 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 
 	trackRedisKeys := true
 	ignoreTrack := map[string]bool{
-		models.KeynavGlobalMetaProjects():                      true,
-		models.KeynavProjectMetadataStatic(projectID.String()): true,
+		models.KeynavGlobalMetaProjects():             true,
+		models.KeynavProjectMetadataStatic(publishID): true,
 	}
 
 	go func() {
@@ -146,7 +154,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 
 			// Track all saved keys so that later we can remove them all in a republish
 			if trackRedisKeys && !ignoreTrack[command.Key] {
-				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "keys"), []byte(command.Key)).Exec(redis.Instance)
+				common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "keys"), []byte(command.Key)).Exec(redis.Instance)
 			}
 			swg.wg.Done()
 			swg.wgMu.Unlock()
@@ -165,7 +173,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 	go func() {
 		fmt.Println("Compiling dialog and graph")
 		items := []models.ProjectItem(projectItems)
-		graph, err := compile.Dialog(redisWriter, &items)
+		graph, err := compile.Dialog(redisWriter, &items, publishID)
 		result := compileDialogResult{graph, err}
 		compileDialogChannel <- result
 	}()
@@ -179,7 +187,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 			return
 		}
 		items := []models.ProjectItem(projectItems)
-		err := compile.Metadata(redisWriter, project, &items, version)
+		err := compile.Metadata(redisWriter, project, &items, version, publishID)
 		compileMetadataChannel <- err
 	}()
 
@@ -187,7 +195,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 	go func() {
 		fmt.Println("Compiling actors into zones")
 		items := []models.ProjectItem(projectItems)
-		err := compile.Actor(redisWriter, &items)
+		err := compile.Actor(redisWriter, &items, publishID)
 		compileActorChannel <- err
 	}()
 
@@ -195,7 +203,7 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 	go func() {
 		fmt.Println("Compiling triggers into zones")
 		triggerItems := []models.ProjectTriggerItem(project.TriggerData)
-		err := compile.Trigger(redisWriter, &triggerItems)
+		err := compile.Trigger(redisWriter, &triggerItems, publishID)
 		compileTriggerChannel <- err
 	}()
 
@@ -241,34 +249,20 @@ func initiateCompiler(projectID uuid.UUID, version int64, isDemo bool) error {
 	swg.wgMu.Unlock()
 	swg.wg.Wait()
 
-	_, err = db.Instance.Exec(`DELETE FROM workbench_projects_needing_review WHERE "ProjectID"=$1`, projectID)
-	if err != nil {
-		return err
+	if !isDemo {
+		_, err = db.Instance.Exec(`DELETE FROM workbench_projects_needing_review WHERE "ProjectID"=$1`, projectID)
+		if err != nil {
+			return err
+		}
 	}
 
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "status"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "status"),
 		[]byte(fmt.Sprintf("%v", models.PublishStatusPublished))).Exec(redis.Instance)
 
 	common.RedisSET(
-		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(projectID.String()), "pubtime"),
+		fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "pubtime"),
 		[]byte(fmt.Sprintf("%v", time.Now().UnixNano()))).Exec(redis.Instance)
-
-	team := models.Team{}
-	err = db.DBMap.SelectOne(&team, `
-		SELECT DISTINCT
-			p."TeamID" "ID"
-		FROM workbench_projects p
-		WHERE p."ID"=$1
-		`, projectID)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Instance.Exec(`INSERT INTO published_workbench_projects ("ProjectID", "TeamID") VALUES ($1, $2)`, projectID, team.ID)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

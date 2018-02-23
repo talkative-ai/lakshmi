@@ -32,7 +32,7 @@ import (
 //
 // 6. Finally send it all off to be converted to bytes,
 //		and return the value to the calling function "DialogNode"
-func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisCommand) []byte {
+func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisCommand, publishID string) []byte {
 	lblock := models.LBlock{}
 
 	wg := sync.WaitGroup{}
@@ -46,7 +46,7 @@ func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisComm
 	go func() {
 		defer wg.Done()
 		bslice := prepare.BundleActions(node.RawLBlock.AlwaysExec)
-		key := models.KeynavCompiledDialogNodeActionBundle(node.ProjectID.String(), node.ID.String(), atomic.AddUint64(&bundleCount, 1)-1)
+		key := models.KeynavCompiledDialogNodeActionBundle(publishID, node.ID.String(), atomic.AddUint64(&bundleCount, 1)-1)
 		redisWriter <- common.RedisSET(key, bslice)
 		lblock.AlwaysExec = key
 	}()
@@ -81,7 +81,7 @@ func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisComm
 				defer wg.Done()
 				bslice := prepare.BundleActions(Statement.Exec)
 
-				key := models.KeynavCompiledDialogNodeActionBundle(node.ProjectID.String(), node.ID.String(), atomic.AddUint64(&bundleCount, 1)-1)
+				key := models.KeynavCompiledDialogNodeActionBundle(publishID, node.ID.String(), atomic.AddUint64(&bundleCount, 1)-1)
 
 				redisWriter <- common.RedisSET(key, bslice)
 				// Again, as per note 3:
@@ -99,7 +99,7 @@ func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisComm
 // DialogNode is a helper function to compile.Dialog
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
-func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUUID) {
+func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUUID, publishID string) {
 	processed.Mutex.Lock()
 	if processed.Value == nil {
 		processed.Value = map[uuid.UUID]bool{}
@@ -125,8 +125,8 @@ func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, pr
 		}
 
 		// Save the compiled logical blocks and action bundles
-		bslice = append(bslice, compileNodeHelper(node, redisWriter)...)
-		compiledKey := models.KeynavCompiledEntity(node.ProjectID.String(), models.AEIDDialogNode, node.ID.String())
+		bslice = append(bslice, compileNodeHelper(node, redisWriter, publishID)...)
+		compiledKey := models.KeynavCompiledEntity(publishID, models.AEIDDialogNode, node.ID.String())
 
 		// Send it to be written to Redis
 		redisWriter <- common.RedisSET(compiledKey, bslice)
@@ -134,12 +134,12 @@ func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, pr
 		// If this dialog node is a "catch all" for every unhandled input
 		if node.UnknownHandler {
 			if node.IsRoot {
-				key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID.String(), node.ActorID.String())
+				key := models.KeynavCompiledDialogRootWithinActor(publishID, node.ActorID.String())
 				redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
 			}
 			if node.ParentNodes != nil {
 				for _, parent := range *node.ParentNodes {
-					key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID.String(), node.ActorID.String(), parent.ID.String())
+					key := models.KeynavCompiledDialogNodeWithinActor(publishID, node.ActorID.String(), parent.ID.String())
 					redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
 				}
 			}
@@ -150,12 +150,12 @@ func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, pr
 				inp := input.Prepared()
 
 				if node.IsRoot {
-					key := models.KeynavCompiledDialogRootWithinActor(node.ProjectID.String(), node.ActorID.String())
+					key := models.KeynavCompiledDialogRootWithinActor(publishID, node.ActorID.String())
 					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 				}
 				if node.ParentNodes != nil {
 					for _, parent := range *node.ParentNodes {
-						key := models.KeynavCompiledDialogNodeWithinActor(node.ProjectID.String(), node.ActorID.String(), parent.ID.String())
+						key := models.KeynavCompiledDialogNodeWithinActor(publishID, node.ActorID.String(), parent.ID.String())
 						redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
 					}
 				}
@@ -174,7 +174,7 @@ func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, pr
 	for _, child := range *node.ChildNodes {
 		go func(node models.DialogNode) {
 			defer wg.Done()
-			DialogNode(node, redisWriter, processed)
+			DialogNode(node, redisWriter, processed, publishID)
 		}(*child)
 	}
 	wg.Wait()

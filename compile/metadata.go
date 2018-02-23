@@ -9,11 +9,11 @@ import (
 )
 
 // Metadata saves all of the static and dynamic project metadata
-func Metadata(redisWriter chan common.RedisCommand, project models.Project, items *[]models.ProjectItem, version int64) error {
-	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(project.ID.String()), "title", []byte(project.Title))
-	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(project.ID.String()), "start_zone_id", []byte(fmt.Sprintf("%v", project.StartZoneID.UUID.String())))
-	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(project.ID.String()), "pubver", []byte(fmt.Sprintf("%v", version)))
-	redisWriter <- common.RedisHSET(models.KeynavGlobalMetaProjects(), strings.ToUpper(project.Title), []byte(fmt.Sprintf("%v", project.ID.String())))
+func Metadata(redisWriter chan common.RedisCommand, project models.Project, items *[]models.ProjectItem, version int64, publishID string) error {
+	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "title", []byte(project.Title))
+	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "start_zone_id", []byte(fmt.Sprintf("%v", project.StartZoneID.UUID.String())))
+	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "pubver", []byte(fmt.Sprintf("%v", version)))
+	redisWriter <- common.RedisHSET(models.KeynavGlobalMetaProjects(), strings.ToUpper(project.Title), []byte(fmt.Sprintf("%v", publishID)))
 
 	zoneIDs := map[string]bool{}
 	for _, item := range *items {
@@ -21,7 +21,7 @@ func Metadata(redisWriter chan common.RedisCommand, project models.Project, item
 	}
 
 	for id := range zoneIDs {
-		redisWriter <- common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(project.ID.String()), "all_zones"), []byte(id))
+		redisWriter <- common.RedisSADD(fmt.Sprintf("%v:%v", models.KeynavProjectMetadataStatic(publishID), "all_zones"), []byte(id))
 	}
 
 	return nil
