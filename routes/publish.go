@@ -254,6 +254,21 @@ func initiateCompiler(projectID uuid.UUID, publishID string, version int64, isDe
 		if err != nil {
 			return err
 		}
+		team := models.Team{}
+		err = db.DBMap.SelectOne(&team, `
+		SELECT DISTINCT
+			p."TeamID" "ID"
+		FROM workbench_projects p
+		WHERE p."ID"=$1
+	`, projectID)
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Instance.Exec(`INSERT INTO published_workbench_projects ("ProjectID", "TeamID") VALUES ($1, $2)`, projectID, team.ID)
+		if err != nil {
+			return err
+		}
 	}
 
 	common.RedisSET(

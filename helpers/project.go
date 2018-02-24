@@ -6,7 +6,7 @@ import (
 	"github.com/talkative-ai/core/db"
 )
 
-func CreateVersionedProject(tx *sql.Tx, projectID string, currentVersion int64) error {
+func CreateVersionedProject(tx *sql.Tx, projectID string, version int64) error {
 	submitQuery := `
 		INSERT INTO static_published_projects_versioned
 			("ProjectID", "Version", "Title", "Category", "Tags", "ProjectData", "TriggerData")
@@ -81,7 +81,13 @@ func CreateVersionedProject(tx *sql.Tx, projectID string, currentVersion int64) 
 		}
 	}
 
-	tx.Exec(submitQuery, projectID, currentVersion)
+	tx.Exec(`
+		DELETE FROM static_published_projects_versioned
+		WHERE "ProjectID"=$1
+		AND "Version"=$2
+		`, projectID, version)
+
+	tx.Exec(submitQuery, projectID, version)
 
 	if txWasNil == true {
 		return tx.Commit()
