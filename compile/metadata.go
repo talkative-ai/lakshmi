@@ -9,11 +9,13 @@ import (
 )
 
 // Metadata saves all of the static and dynamic project metadata
-func Metadata(redisWriter chan common.RedisCommand, project models.Project, items *[]models.ProjectItem, version int64, publishID string) error {
+func Metadata(redisWriter chan common.RedisCommand, project models.Project, items *[]models.ProjectItem, version int64, publishID string, isDemo bool) error {
 	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "title", []byte(project.Title))
 	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "start_zone_id", []byte(fmt.Sprintf("%v", project.StartZoneID.UUID.String())))
 	redisWriter <- common.RedisHSET(models.KeynavProjectMetadataStatic(publishID), "pubver", []byte(fmt.Sprintf("%v", version)))
-	redisWriter <- common.RedisHSET(models.KeynavGlobalMetaProjects(), strings.ToUpper(project.Title), []byte(fmt.Sprintf("%v", publishID)))
+	if !isDemo {
+		redisWriter <- common.RedisHSET(models.KeynavGlobalMetaProjects(), strings.ToUpper(project.Title), []byte(fmt.Sprintf("%v", publishID)))
+	}
 
 	zoneIDs := map[string]bool{}
 	for _, item := range *items {

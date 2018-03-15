@@ -58,9 +58,7 @@ func PostPublishHandler(w http.ResponseWriter, r *http.Request) {
 
 	if isDemo {
 		version = -1
-		if isDemo {
-			publishID = fmt.Sprintf("demo:%+v", publishID)
-		}
+		publishID = fmt.Sprintf("demo:%+v", publishID)
 		helpers.CreateVersionedProject(nil, projectID.String(), -1)
 	} else {
 		var err error
@@ -187,7 +185,7 @@ func initiateCompiler(projectID uuid.UUID, publishID string, version int64, isDe
 			return
 		}
 		items := []models.ProjectItem(projectItems)
-		err := compile.Metadata(redisWriter, project, &items, version, publishID)
+		err := compile.Metadata(redisWriter, project, &items, version, publishID, isDemo)
 		compileMetadataChannel <- err
 	}()
 
