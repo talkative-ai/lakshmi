@@ -1,8 +1,15 @@
 package helpers
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/talkative-ai/snips-nlu-types"
 
 	"github.com/talkative-ai/core/common"
 	"github.com/talkative-ai/core/models"
@@ -96,10 +103,69 @@ func compileNodeHelper(node models.DialogNode, redisWriter chan common.RedisComm
 	return CompileLogic(&lblock)
 }
 
+func TrainData(parent *models.DialogNode, actorID string, nodes *[]*models.DialogNode, redisWriter chan common.RedisCommand, publishID string) {
+
+	var compiledKey string
+	if parent == nil {
+		compiledKey = models.KeynavCompiledDialogRootWithinActor(publishID, actorID)
+	} else {
+		compiledKey = models.KeynavCompiledDialogNodeWithinActor(publishID, actorID, parent.ID.String())
+	}
+
+	dataset := snips.Dataset{}
+	dataset.Language = snips.LanguageEnglish
+	dataset.Entities = map[string]snips.Entity{}
+	dataset.Intents = map[string]snips.Intent{}
+
+	for _, node := range *nodes {
+
+		logicalBlockLocation := models.KeynavCompiledEntity(publishID, models.AEIDDialogNode, node.ID.String())
+
+		if node.UnknownHandler {
+			// TODO: Handle unknown
+			continue
+		}
+
+		intent := snips.Intent{}
+
+		for _, input := range node.EntryInput {
+			// TODO: Support slots and entities
+			utterance := snips.Utterance{}
+			utterance.AddChunk(snips.UtteranceChunk{Text: input.Prepared()})
+			intent.AddUtterance(utterance)
+		}
+
+		dataset.Intents[logicalBlockLocation] = intent
+	}
+
+	preparedDataset, err := json.Marshal(dataset)
+	if err != nil {
+		fmt.Println("Error in TrainData", err)
+		// TODO: Handle errors
+	}
+
+	rq, err := http.NewRequest("POST", fmt.Sprintf("http://vishnu:8080/v1/train"), bytes.NewReader(preparedDataset))
+	if err != nil {
+		fmt.Println("Error in TrainData", err)
+		// TODO: Handle errors
+	}
+	rq.Header.Add("content-type", "application/json")
+	client := http.Client{}
+	resp, err := client.Do(rq)
+
+	trainedData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error in TrainData", err)
+		// TODO: Handle errors
+	}
+
+	redisWriter <- common.RedisSET(compiledKey, trainedData)
+}
+
 // DialogNode is a helper function to compile.Dialog
 // It compiles the node logical blocks, action bundles therein,
 // and its child nodes recursively.
-func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, processed common.SyncMapUUID, publishID string) {
+func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, processed *common.SyncMapUUID, publishID string) {
 	processed.Mutex.Lock()
 	if processed.Value == nil {
 		processed.Value = map[uuid.UUID]bool{}
@@ -131,43 +197,18 @@ func DialogNode(node models.DialogNode, redisWriter chan common.RedisCommand, pr
 		// Send it to be written to Redis
 		redisWriter <- common.RedisSET(compiledKey, bslice)
 
-		// If this dialog node is a "catch all" for every unhandled input
-		if node.UnknownHandler {
-			if node.IsRoot {
-				key := models.KeynavCompiledDialogRootWithinActor(publishID, node.ActorID.String())
-				redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
-			}
-			if node.ParentNodes != nil {
-				for _, parent := range *node.ParentNodes {
-					key := models.KeynavCompiledDialogNodeWithinActor(publishID, node.ActorID.String(), parent.ID.String())
-					redisWriter <- common.RedisHSET(key, models.DialogSpecialInputUnknown, []byte(compiledKey))
-				}
-			}
-		} else {
-			// Creating a Redis hash which maps every user input to the node's key
-			// This enables Brahman to match a user input to the node data while remaining normalized
-			for _, input := range node.EntryInput {
-				inp := input.Prepared()
-
-				if node.IsRoot {
-					key := models.KeynavCompiledDialogRootWithinActor(publishID, node.ActorID.String())
-					redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
-				}
-				if node.ParentNodes != nil {
-					for _, parent := range *node.ParentNodes {
-						key := models.KeynavCompiledDialogNodeWithinActor(publishID, node.ActorID.String(), parent.ID.String())
-						redisWriter <- common.RedisHSET(key, inp, []byte(compiledKey))
-					}
-				}
-			}
-		}
-
 	}(node)
 
 	if node.ChildNodes == nil {
 		wg.Wait()
 		return
 	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		TrainData(&node, node.ActorID.String(), node.ChildNodes, redisWriter, publishID)
+	}()
 
 	// For every child node, recurse this operation
 	wg.Add(len(*node.ChildNodes))

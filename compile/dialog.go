@@ -117,13 +117,38 @@ func Dialog(redisWriter chan common.RedisCommand, items *[]models.ProjectItem, p
 	// With our graph constructed, we find go through the root dialog nodes
 	// And compile them.
 	// helpers.DialogNode will recurse down the children nodes
+
+	rootNodesByActorID := map[uuid.UUID]*[]*models.DialogNode{}
+	syncmap := common.SyncMapUUID{}
+
 	for rootID := range dialogGraphRoots {
-		wg.Add(1)
+
 		node := *dialogGraph[rootID]
+
+		var rootNodesArray []*models.DialogNode
+
+		if rootNodesByActorID[node.ActorID] == nil {
+			rootNodesByActorID[node.ActorID] = &[]*models.DialogNode{}
+		}
+
+		rootNodesArray = *rootNodesByActorID[node.ActorID]
+		rootNodesArray = append(rootNodesArray, &node)
+
+		rootNodesByActorID[node.ActorID] = &rootNodesArray
+
+		wg.Add(1)
 		go func(node models.DialogNode) {
 			defer wg.Done()
-			helpers.DialogNode(node, redisWriter, common.SyncMapUUID{}, publishID)
+			helpers.DialogNode(node, redisWriter, &syncmap, publishID)
 		}(node)
+	}
+
+	for actorID, rootNodesArray := range rootNodesByActorID {
+		wg.Add(1)
+		go func(aid string, arr []*models.DialogNode) {
+			defer wg.Done()
+			helpers.TrainData(nil, aid, &arr, redisWriter, publishID)
+		}(actorID.String(), *rootNodesArray)
 	}
 
 	wg.Wait()
