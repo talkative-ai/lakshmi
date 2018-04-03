@@ -121,8 +121,18 @@ func TrainData(parent *models.DialogNode, actorID string, nodes *[]*models.Dialo
 
 		logicalBlockLocation := models.KeynavCompiledEntity(publishID, models.AEIDDialogNode, node.ID.String())
 
+		// The "catch all" isn't an intent, but rather a lack thereof
+		// Therefor, if a system like Brahman is dissatisfied with the intent probability
+		// for a given conversation context, it will know the location of the unknown handler
+		// logical block.
 		if node.UnknownHandler {
-			// TODO: Handle unknown
+			var unknownHandlerKey string
+			if parent == nil {
+				unknownHandlerKey = models.KeynavCompiledDialogRootUnknownWithinActor(publishID, actorID)
+			} else {
+				unknownHandlerKey = models.KeynavCompiledDialogNodeUnknownWithinActor(publishID, actorID, parent.ID.String())
+			}
+			redisWriter <- common.RedisSET(unknownHandlerKey, []byte(logicalBlockLocation))
 			continue
 		}
 
