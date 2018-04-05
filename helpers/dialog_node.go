@@ -109,7 +109,7 @@ func TrainData(parent *models.DialogNode, actorID string, nodes *[]*models.Dialo
 	if parent == nil {
 		compiledKey = models.KeynavCompiledDialogRootWithinActor(publishID, actorID)
 	} else {
-		compiledKey = models.KeynavCompiledDialogNodeWithinActor(publishID, actorID, parent.ID.String())
+		compiledKey = models.KeynavCompiledDialogNode(publishID, parent.ID.String())
 	}
 
 	dataset := snips.Dataset{}
@@ -130,7 +130,7 @@ func TrainData(parent *models.DialogNode, actorID string, nodes *[]*models.Dialo
 			if parent == nil {
 				unknownHandlerKey = models.KeynavCompiledDialogRootUnknownWithinActor(publishID, actorID)
 			} else {
-				unknownHandlerKey = models.KeynavCompiledDialogNodeUnknownWithinActor(publishID, actorID, parent.ID.String())
+				unknownHandlerKey = models.KeynavCompiledDialogNodeUnknown(publishID, parent.ID.String())
 			}
 			redisWriter <- common.RedisSET(unknownHandlerKey, []byte(logicalBlockLocation))
 			continue
